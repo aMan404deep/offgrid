@@ -77,6 +77,12 @@ export const GatewayView: React.FC = () => {
           email,
           password,
         });
+        
+        if (!authResponse.error && !authResponse.data.session) {
+          setErrorMsg("Account created! Please check your email for a confirmation link (if required by your Supabase project).");
+          setLoading(false);
+          return;
+        }
       } else {
         authResponse = await supabase.auth.signInWithPassword({
           email,
@@ -84,7 +90,12 @@ export const GatewayView: React.FC = () => {
         });
       }
 
-      if (authResponse.error) throw authResponse.error;
+      if (authResponse.error) {
+        if (authResponse.error.message === "Invalid login credentials" && authMode === "login") {
+          throw new Error("Invalid login credentials. If you haven't created an account yet, please click 'Create Account'.");
+        }
+        throw authResponse.error;
+      }
       // Auth change listener will trigger checkInternalUser
     } catch (err: any) {
       console.error("Auth error", err);

@@ -20,6 +20,7 @@ if (hasDBCredentials) {
     user: process.env.SQL_USER,
     password: process.env.SQL_PASSWORD,
     database: process.env.SQL_DB_NAME,
+    port: process.env.SQL_PORT ? parseInt(process.env.SQL_PORT, 10) : 6543,
     connectionTimeoutMillis: 15000,
   });
 
