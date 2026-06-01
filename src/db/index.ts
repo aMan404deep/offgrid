@@ -29,6 +29,18 @@ if (hasDBCredentials) {
   });
 
   dbInstance = drizzle(pool, { schema });
+
+  // Self-healing: verify authentication columns exist on startup
+  (async () => {
+    try {
+      const { sql } = await import("drizzle-orm");
+      await dbInstance.execute(sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash text;`);
+      await dbInstance.execute(sql`ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_salt text;`);
+      console.log("[ZenPlan DB] Verified password columns in database.");
+    } catch (err: any) {
+      console.warn("[ZenPlan DB] Optional schema check message:", err.message);
+    }
+  })();
 } else {
   console.warn("[ZenPlan DB] Running in Local Memory fallback mode because Cloud SQL environment variables are not yet populated.");
 }

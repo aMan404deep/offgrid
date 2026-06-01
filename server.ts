@@ -5,6 +5,22 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { ARRISE_LEAVE_POLICY_TEXT } from "./src/data/leavePolicy.js";
 import { getEmployeeByEmail, upsertEmployee } from "./src/db/repo.ts";
+import crypto from "crypto";
+
+function hashPassword(password: string): { salt: string; hash: string } {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+  return { salt, hash };
+}
+
+function verifyPassword(password: string, salt: string, correctHash: string): boolean {
+  const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(correctHash, "hex"));
+  } catch (err) {
+    return false;
+  }
+}
 
 // Load environment variables
 dotenv.config();
@@ -153,6 +169,89 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
     geminiConfigured: hasKey,
   });
+});
+
+
+// 1.2. Custom Code-Level Authentication endpoints (uses Supabase strictly as a PostgreSQL database)
+app.post("/api/auth/signup", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  try {
+    const normEmail = email.trim().toLowerCase();
+    const existingEmployee = await getEmployeeByEmail(normEmail);
+
+    if (existingEmployee && existingEmployee.passwordHash) {
+      return res.status(400).json({ error: "An account with this email already exists. Please login." });
+    }
+
+    const { salt, hash } = hashPassword(password);
+
+    const baseEmp = {
+      email: normEmail,
+      name: "New Joiner",
+      role: "Optimizer",
+      avatar: "",
+      location: "Noida",
+      level: "Lv 4 Leave Optimizer",
+      earnedLeave: 14,
+      earnedLeaveMax: 40,
+      clCount: 6,
+      slCount: 6,
+      compOffCount: 2,
+      compOffExpiryDays: 45,
+      vibes: "Mountains",
+      budgetLevel: 2,
+      prioritizeROI: true,
+      prioritizeLowestCost: false,
+      currentTripLocation: "Coimbatore",
+      isTripLocked: false,
+      activeHolidaySwaps: "{}",
+      passwordHash: hash,
+      passwordSalt: salt,
+    };
+
+    // If existing record was a legacy record or mock without password, this will preserve credentials on upsert
+    await upsertEmployee(baseEmp);
+
+    return res.json({ success: true, needsSetup: true, email: normEmail });
+  } catch (error: any) {
+    console.error("[ZenPlan Server] Sign up error:", error);
+    return res.status(500).json({ error: "Signup failed.", details: error.message });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: "Email and password are required." });
+  }
+
+  try {
+    const normEmail = email.trim().toLowerCase();
+    const employee = await getEmployeeByEmail(normEmail);
+
+    if (!employee) {
+      return res.status(400).json({ error: "Account not found. Please click 'Create Account' to sign up first." });
+    }
+
+    if (!employee.passwordHash || !employee.passwordSalt) {
+      return res.status(400).json({ error: "This email exists but does not have password credentials. Please sign up to set your password." });
+    }
+
+    const isValid = verifyPassword(password, employee.passwordSalt, employee.passwordHash);
+    if (!isValid) {
+      return res.status(400).json({ error: "Incorrect password. Please try again." });
+    }
+
+    // Success! Return user profile
+    return res.json({ success: true, data: employee });
+  } catch (error: any) {
+    console.error("[ZenPlan Server] Login error:", error);
+    return res.status(500).json({ error: "Login failed.", details: error.message });
+  }
 });
 
 

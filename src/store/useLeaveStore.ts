@@ -267,10 +267,8 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
 
     checkAutoLogin: async () => {
       try {
-        const { supabase } = await import('../utils/supabase');
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session && session.user && session.user.email) {
-          const email = session.user.email;
+        const email = localStorage.getItem("zenplan_email");
+        if (email) {
           const response = await fetch(`/api/employee?email=${encodeURIComponent(email)}`);
           if (response.ok) {
             const result = await response.json();
@@ -389,10 +387,6 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
     },
 
     logout: async () => {
-      try {
-        const { supabase } = await import('../utils/supabase');
-        await supabase.auth.signOut();
-      } catch (e) {}
       localStorage.removeItem("zenplan_email");
       localStorage.removeItem("zenplan_pending_email");
       set({

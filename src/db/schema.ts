@@ -27,6 +27,8 @@ export const employees = pgTable("employees", {
   currentTripLocation: text("current_trip_location").notNull().default("Coimbatore"),
   isTripLocked: boolean("is_trip_locked").notNull().default(false),
   activeHolidaySwaps: text("active_holiday_swaps").notNull().default("{}"), // Stringified JSON
+  passwordHash: text("password_hash"),
+  passwordSalt: text("password_salt"),
 
   updatedAt: timestamp("updated_at").defaultNow(),
 });

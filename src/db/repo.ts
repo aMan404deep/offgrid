@@ -24,6 +24,8 @@ export interface DbEmployee {
   currentTripLocation: string;
   isTripLocked: boolean;
   activeHolidaySwaps: string;
+  passwordHash?: string | null;
+  passwordSalt?: string | null;
   updatedAt?: Date | null;
 }
 
@@ -93,6 +95,8 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
         currentTripLocation: employee.currentTripLocation,
         isTripLocked: employee.isTripLocked,
         activeHolidaySwaps: employee.activeHolidaySwaps,
+        passwordHash: employee.passwordHash || null,
+        passwordSalt: employee.passwordSalt || null,
       })
       .onConflictDoUpdate({
         target: employees.email,

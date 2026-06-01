@@ -4,7 +4,6 @@ import { OfficeLocation } from "../types";
 import { AppLogo } from "./AppLogo";
 import { ShieldCheck } from "lucide-react";
 import { MascotDoodle } from "./MascotDoodle";
-import { supabase } from "../utils/supabase";
 
 export const GatewayView: React.FC = () => {
   const { login } = useLeaveStore();
@@ -25,22 +24,11 @@ export const GatewayView: React.FC = () => {
   ];
 
   useEffect(() => {
-    // Check for an existing session (useful after Google OAuth redirect)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && session.user && session.user.email) {
-        checkInternalUser(session.user.email);
-      }
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email) {
-        checkInternalUser(session.user.email);
-      }
-    });
-
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    // Check if there is already an email saved locally
+    const savedEmail = localStorage.getItem("zenplan_email");
+    if (savedEmail) {
+      checkInternalUser(savedEmail);
+    }
   }, []);
 
   const checkInternalUser = async (userEmail: string) => {
@@ -51,11 +39,11 @@ export const GatewayView: React.FC = () => {
       localStorage.setItem("zenplan_pending_email", userEmail);
       setEmail(userEmail); // Fill email in case they go to setup
 
-      if (data.exists && data.data) {
-        // Exists in DB, login successfully
+      if (data.exists && data.data && data.data.name !== "New Joiner") {
+        // Exists in DB and profile is set up, login successfully
         login(data.data.location || "Noida", data.data.name || "Employee");
       } else {
-        // Doesn't exist, proceed to setup
+        // Doesn't exist or is a skeleton record, proceed to setup
         setStep("setup");
       }
     } catch (err: any) {
@@ -71,35 +59,42 @@ export const GatewayView: React.FC = () => {
     setErrorMsg("");
     
     try {
-      let authResponse;
       if (authMode === "signup") {
-        authResponse = await supabase.auth.signUp({
-          email,
-          password,
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
         });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Failed to create account.");
+        }
         
-        if (!authResponse.error && !authResponse.data.session) {
-          setErrorMsg("Account created! Please check your email for a confirmation link (if required by your Supabase project).");
-          setLoading(false);
-          return;
-        }
+        localStorage.setItem("zenplan_pending_email", email);
+        setStep("setup");
       } else {
-        authResponse = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
         });
-      }
-
-      if (authResponse.error) {
-        if (authResponse.error.message === "Invalid login credentials" && authMode === "login") {
-          throw new Error("Invalid login credentials. If you haven't created an account yet, please click 'Create Account'.");
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || "Failed to log in.");
         }
-        throw authResponse.error;
+        
+        localStorage.setItem("zenplan_email", email);
+        
+        if (data.data && data.data.name && data.data.name !== "New Joiner") {
+          login(data.data.location || "Noida", data.data.name || "Employee");
+        } else {
+          setStep("setup");
+        }
       }
-      // Auth change listener will trigger checkInternalUser
     } catch (err: any) {
       console.error("Auth error", err);
       setErrorMsg(err.message || "Failed to authenticate.");
+    } finally {
       setLoading(false);
     }
   };
