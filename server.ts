@@ -241,11 +241,11 @@ app.post("/api/policy-chat", async (req, res) => {
 
     return res.json({ text: replyText, sources });
   } catch (error: any) {
-    console.error("[ZenPlan Server] Gemini API policy chat error:", error);
     if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-      console.log("[ZenPlan] Returning fallback for chatbot due to API availability or quota error.");
+      console.log("[ZenPlan] Returning fallback for chatbot due to API availability or quota error. (Graceful fallback)");
       return res.json({ text: getFallbackPolicyChat(message), sources: ["Section 4: Arrise Leave Policy.md"] });
     }
+    console.error("[ZenPlan Server] Gemini API policy chat error:", error);
     return res.status(500).json({
       error: "Error generating AI response. Please check your API key or connection.",
       details: error.message,
@@ -405,11 +405,11 @@ app.post("/api/generate-itinerary", async (req, res) => {
       throw new Error("No response text returned from Gemini API");
     }
   } catch (error: any) {
-    console.error("[ZenPlan Server] Gemini Travel Itinerary Generator Error:", error);
     if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-      console.log("[ZenPlan] Returning fallback for iterator due to API availability or quota error.");
+      console.log("[ZenPlan] Returning fallback for iterator due to API availability or quota error. (Graceful fallback)");
       return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
     }
+    console.error("[ZenPlan Server] Gemini Travel Itinerary Generator Error:", error);
     return res.status(500).json({
       error: "Error generating travel schedule dynamically.",
       details: error.message
@@ -490,16 +490,18 @@ Be sure to include actual URLs (links) from your search results. Limit to top 3 
       throw new Error("Could not parse deals into structured format. Retry later.");
     }
   } catch (error: any) {
-    console.error("[ZenPlan Server] Live Deals Search Error:", error);
     // Generic simple fallback so app doesn't crash
     if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-         console.log("[ZenPlan] Returning fallback for live deals due to API availability or quota error.");
+         console.log("[ZenPlan] Returning fallback for live deals due to API availability or quota error. (Graceful fallback)");
          return res.json({
             flights: [{ title: `Budget Flight to ${resolvedDestination}`, provider: "MakeMyTrip Sandbox", price: "₹4,500", url: "https://www.makemytrip.com/", rating: "4/5" }],
             hotels: [{ title: `Premium Stay in ${resolvedDestination}`, provider: "Booking.com Sandbox", price: "₹2,500/night", url: "https://www.booking.com/", rating: "4.8/5" }],
-            offers: [{ title: "Flat 10% Off on Flights", provider: "Cleartrip", code: "CTFLY10", url: "https://www.cleartrip.com/" }]
+            offers: [{ title: "Flat 10% Off on Flights", provider: "Cleartrip", code: "CTFLY10", url: "https://www.cleartrip.com/" }],
+            weather: "28°C, Clear Sky",
+            safety: "Safe, exercise normal precautions."
          });
     }
+    console.error("[ZenPlan Server] Live Deals Search Error:", error);
     return res.status(500).json({
       error: "Error fetching live deals from verified sources.",
       details: error.message

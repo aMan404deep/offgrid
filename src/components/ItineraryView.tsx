@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
-import { MapPin, Calendar, Compass, ShieldAlert, Sparkles, AlertCircle, DollarSign, Lock, Play, RefreshCw, Layers, GitCompare, ArrowRightLeft, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Download, MapPin, Calendar, Compass, ShieldAlert, Sparkles, AlertCircle, DollarSign, Lock, Play, RefreshCw, Layers, GitCompare, ArrowRightLeft, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { LiveDealsCard } from "./LiveDealsCard";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 // Geolocation helper mimicking real mapping positions of cities to dynamic canvas coords (viewBox 0 0 400 300)
 function getCoordsForName(name: string, isOrigin: boolean = false) {
@@ -188,6 +190,43 @@ export const ItineraryView: React.FC = () => {
     generateItinerary(currentTripLocation);
   };
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      const element = document.getElementById("itinerary-printable-content");
+      if (!element) return;
+      
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+      
+      pdf.save(`Itinerary_${currentTripLocation}.pdf`);
+    } catch (error) {
+      console.error("Failed to generate PDF", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   return (
     <div id="itinerary-wrapper" className="space-y-8 animate-fade-in font-sans pb-16 select-none">
       
@@ -200,12 +239,13 @@ export const ItineraryView: React.FC = () => {
           </p>
         </div>
         
-        {/* Destination form box */}
-        <form onSubmit={handleGenerate} className="flex gap-2 shrink-0">
-          <div className="relative">
-            <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-stone-400" />
-            <input
-              id="itinerary-dest-input"
+        <div className="flex gap-2">
+          {/* Destination form box */}
+          <form onSubmit={handleGenerate} className="flex gap-2 shrink-0">
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-stone-400" />
+              <input
+                id="itinerary-dest-input"
               type="text"
               value={destInput}
               onChange={(e) => setDestInput(e.target.value)}
@@ -274,9 +314,26 @@ export const ItineraryView: React.FC = () => {
             <span>Generate Itinerary</span>
           </button>
         </form>
+        
+        <button
+          type="button"
+          onClick={handleDownloadPDF}
+          disabled={isDownloading || isGeneratingItinerary}
+          className="px-4 py-2 bg-white text-stone-900 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+        >
+          {isDownloading ? (
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          <span>Download PDF</span>
+        </button>
+      </div>
       </div>
 
-      {/* Comparison View Segment Toggle */}
+      {/* Printable Content for PDF Download */}
+      <div id="itinerary-printable-content" className="space-y-8 bg-white p-2 rounded-xl">
+        {/* Comparison View Segment Toggle */}
       <div id="itinerary-compare-action-section" className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#f6f3f2] border border-[#eae7e7] p-4 rounded-2xl">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-white border border-[#eae7e7] text-[#944a00] rounded-xl shadow-sm flex items-center justify-center shrink-0">
@@ -1040,6 +1097,7 @@ export const ItineraryView: React.FC = () => {
           <LiveDealsCard />
         </div>
 
+      </div>
       </div>
 
     </div>
