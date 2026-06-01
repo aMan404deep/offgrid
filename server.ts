@@ -155,42 +155,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-const activeOtps: Record<string, string> = {};
-
-app.post("/api/auth/send-otp", (req, res) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: "Email is required" });
-  }
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  activeOtps[email] = otp;
-  console.log(`[Auth] Simulated OTP sent to ${email}: ${otp}`);
-  return res.json({ success: true, message: "OTP sent successfully" });
-});
-
-app.post("/api/auth/verify-otp", async (req, res) => {
-  const { email, otp } = req.body;
-  if (!email || !otp) {
-    return res.status(400).json({ error: "Email and OTP required" });
-  }
-  if (activeOtps[email] !== otp) {
-    if (otp !== "123456") { // allow a backdoor for easy testing
-      return res.status(401).json({ error: "Invalid OTP" });
-    }
-  }
-  delete activeOtps[email];
-  
-  try {
-    const employee = await getEmployeeByEmail(email);
-    if (employee) {
-      return res.json({ success: true, isNewUser: false, data: employee });
-    } else {
-      return res.json({ success: true, isNewUser: true });
-    }
-  } catch (error: any) {
-    return res.status(500).json({ error: "DB Error", details: error.message });
-  }
-});
 
 // 1.5. DB Employee records synchronization endpoints (Cloud SQL PostgreSQL integration)
 app.get("/api/employee", async (req, res) => {

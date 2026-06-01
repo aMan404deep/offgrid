@@ -1,15 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
 import { OfficeLocation } from "../types";
 import { AppLogo } from "./AppLogo";
-import { Sparkles, ShieldCheck, MapPin } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { MascotDoodle } from "./MascotDoodle";
+import { supabase } from "../utils/supabase";
 
 export const GatewayView: React.FC = () => {
   const { login } = useLeaveStore();
-  const [step, setStep] = useState<"email" | "otp" | "setup">("email");
+  const [step, setStep] = useState<"auth" | "setup">("auth");
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
   const [employeeName, setEmployeeName] = useState("");
   const [employeeRole, setEmployeeRole] = useState("");
   const [selectedLocation, setSelectedLocation] = useState<OfficeLocation>("Noida");
@@ -22,62 +24,93 @@ export const GatewayView: React.FC = () => {
     { id: "Kolkata", city: "Kolkata", code: "CCU-OPS", description: "Arrise East Operations Center" },
   ];
 
-  const handleEmailSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setLoading(true);
-    setErrorMsg("");
-    try {
-      const response = await fetch("/api/auth/send-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      if (response.ok) {
-        setStep("otp");
-      } else {
-        const data = await response.json();
-        setErrorMsg(data.error || "Failed to send OTP");
+  useEffect(() => {
+    // Check for an existing session (useful after Google OAuth redirect)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && session.user && session.user.email) {
+        checkInternalUser(session.user.email);
       }
-    } catch {
-      setErrorMsg("Network error.");
-    }
-    setLoading(false);
-  };
+    });
 
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otp) return;
-    setLoading(true);
-    setErrorMsg("");
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.email) {
+        checkInternalUser(session.user.email);
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const checkInternalUser = async (userEmail: string) => {
     try {
-      const response = await fetch("/api/auth/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp })
-      });
+      const response = await fetch(`/api/employee?email=${encodeURIComponent(userEmail)}`);
       const data = await response.json();
-      if (response.ok) {
-        localStorage.setItem("zenplan_pending_email", email);
-        if (data.isNewUser) {
-          setStep("setup");
-        } else {
-          login(data.data.location, data.data.name);
-        }
+      
+      localStorage.setItem("zenplan_pending_email", userEmail);
+      setEmail(userEmail); // Fill email in case they go to setup
+
+      if (data.exists && data.data) {
+        // Exists in DB, login successfully
+        login(data.data.location || "Noida", data.data.name || "Employee");
       } else {
-        setErrorMsg(data.error || "Invalid OTP");
+        // Doesn't exist, proceed to setup
+        setStep("setup");
       }
-    } catch {
-      setErrorMsg("Network error.");
+    } catch (err: any) {
+      console.error("Check user error", err);
+    }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    
+    setLoading(true);
+    setErrorMsg("");
+    
+    try {
+      let authResponse;
+      if (authMode === "signup") {
+        authResponse = await supabase.auth.signUp({
+          email,
+          password,
+        });
+      } else {
+        authResponse = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+      }
+
+      if (authResponse.error) throw authResponse.error;
+      // Auth change listener will trigger checkInternalUser
+    } catch (err: any) {
+      console.error("Auth error", err);
+      setErrorMsg(err.message || "Failed to authenticate.");
+      setLoading(false);
+    }
+  };
+
+  const handleSetupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      await fetch("/api/employee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name: employeeName, location: selectedLocation, role: employeeRole })
+      });
+      localStorage.setItem("zenplan_initial_role", employeeRole);
+      login(selectedLocation, employeeName);
+    } catch (err) {
+      setErrorMsg("Failed to setup profile.");
     }
     setLoading(false);
   };
 
-  const handleSetupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem("zenplan_initial_role", employeeRole);
-    login(selectedLocation, employeeName);
-  };
 
   return (
     <div id="gateway-root-container" className="min-h-screen bg-[#fcf9f8] flex flex-col items-center justify-center p-6 relative overflow-hidden font-sans select-none">
@@ -105,16 +138,21 @@ export const GatewayView: React.FC = () => {
           <div>
             <span className="text-[10px] font-mono text-[#795900] font-bold tracking-wider uppercase">Optimizer Mascot Nudge</span>
             <p className="text-xs text-[#564337] leading-normal mt-0.5 font-medium">
-              “Hey there! I am your AI assistant. Select your primary office region to query custom policy snapshots and find long-weekend streaks.”
+              “Hey there! I am your AI assistant. Log in to query custom policy snapshots and find long-weekend streaks.”
             </p>
           </div>
         </div>
 
-        {/* Login Form Flow */}
-        {step === "email" && (
-          <form onSubmit={handleEmailSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-mono font-bold text-[#564337] tracking-wider uppercase block">Corporate Email Login</label>
+        {/* Login/Signup Form Flow */}
+        {step === "auth" && (
+          <form onSubmit={handleAuthSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-xs font-mono font-bold text-[#564337] tracking-wider uppercase">
+                <span>Corporate Credentials</span>
+                <button type="button" onClick={() => setAuthMode(m => m === "login" ? "signup" : "login")} className="text-[#944a00] hover:underline">
+                  {authMode === "login" ? "Create Account" : "Back to Login"}
+                </button>
+              </div>
               <input
                 type="email"
                 required
@@ -123,42 +161,23 @@ export const GatewayView: React.FC = () => {
                 className="w-full bg-white/90 border border-[#eae7e7] rounded-xl px-4 py-3 text-[#1c1b1b] text-sm focus:outline-none focus:border-[#944a00] font-medium transition-colors"
                 placeholder="you@arrisesolutions.com"
               />
-            </div>
-            {errorMsg && <p className="text-red-500 text-xs font-medium">{errorMsg}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#944a00] hover:bg-[#e67e22] active:translate-y-0.5 disabled:opacity-50 duration-100 font-semibold text-white px-5 py-4 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide cursor-pointer shadow-md"
-            >
-              <ShieldCheck className="w-5 h-5 text-white" />
-              <span>{loading ? "Sending OTP..." : "Continue with Email"}</span>
-            </button>
-          </form>
-        )}
-
-        {step === "otp" && (
-          <form onSubmit={handleOtpSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-xs font-mono font-bold text-[#564337] tracking-wider uppercase block">Enter OTP Code</label>
-              <p className="text-xs text-[#564337] mb-2">We sent a 6-digit code to {email} (Check your server logs in dev mode)</p>
               <input
-                type="text"
+                type="password"
                 required
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                className="w-full bg-white/90 border border-[#eae7e7] rounded-xl px-4 py-3 text-[#1c1b1b] text-sm focus:outline-none focus:border-[#944a00] font-medium transition-colors tracking-widest text-center"
-                placeholder="123456"
-                maxLength={6}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-white/90 border border-[#eae7e7] rounded-xl px-4 py-3 text-[#1c1b1b] text-sm focus:outline-none focus:border-[#944a00] font-medium transition-colors"
+                placeholder="Password"
               />
             </div>
             {errorMsg && <p className="text-red-500 text-xs font-medium">{errorMsg}</p>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#944a00] hover:bg-[#e67e22] active:translate-y-0.5 disabled:opacity-50 duration-100 font-semibold text-white px-5 py-4 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide cursor-pointer shadow-md"
+              className="w-full bg-[#944a00] hover:bg-[#e67e22] active:translate-y-0.5 disabled:opacity-50 duration-100 font-semibold text-white px-5 py-3.5 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide cursor-pointer shadow-md"
             >
               <ShieldCheck className="w-5 h-5 text-white" />
-              <span>{loading ? "Verifying..." : "Verify OTP"}</span>
+              <span>{loading ? "Authenticating..." : (authMode === "login" ? "Login" : "Sign Up")}</span>
             </button>
           </form>
         )}
@@ -223,12 +242,13 @@ export const GatewayView: React.FC = () => {
                 })}
               </div>
             </div>
-
+            {errorMsg && <p className="text-red-500 text-xs font-medium">{errorMsg}</p>}
             <button
               type="submit"
-              className="w-full bg-[#944a00] hover:bg-[#e67e22] active:translate-y-0.5 duration-100 font-semibold text-white px-5 py-4 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide cursor-pointer shadow-md"
+              disabled={loading}
+              className="w-full bg-[#944a00] hover:bg-[#e67e22] active:translate-y-0.5 disabled:opacity-50 duration-100 font-semibold text-white px-5 py-4 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide cursor-pointer shadow-md"
             >
-              <span>Complete Setup & Login</span>
+              <span>{loading ? "Completing..." : "Complete Setup & Login"}</span>
             </button>
           </form>
         )}
@@ -242,3 +262,4 @@ export const GatewayView: React.FC = () => {
     </div>
   );
 };
+

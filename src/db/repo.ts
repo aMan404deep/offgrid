@@ -76,6 +76,7 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
       .values({
         email: normEmail,
         name: employee.name,
+        role: employee.role,
         avatar: employee.avatar,
         location: employee.location,
         level: employee.level,
