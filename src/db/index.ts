@@ -18,18 +18,38 @@ let dbInstance: any = null;
 if (hasDBCredentials) {
   console.log("[ZenPlan DB] SQL Database environment detected. Initializing pg Pool connection.");
   
-  const poolConfig = process.env.DATABASE_URL
+  const hasIndividual = !!process.env.SQL_HOST && !!process.env.SQL_USER && !!process.env.SQL_PASSWORD && !!process.env.SQL_DB_NAME;
+  const hasUrl = !!process.env.DATABASE_URL;
+
+  console.log(`[ZenPlan DB Info] Environment Variables Check:`);
+  console.log(`  - DATABASE_URL: ${hasUrl ? "DEFINED" : "UNDEFINED"}`);
+  console.log(`  - SQL_HOST: ${process.env.SQL_HOST ? "DEFINED" : "UNDEFINED"}`);
+  console.log(`  - SQL_USER: ${process.env.SQL_USER ? "DEFINED" : "UNDEFINED"}`);
+  console.log(`  - SQL_DB_NAME: ${process.env.SQL_DB_NAME ? "DEFINED" : "UNDEFINED"}`);
+  console.log(`  - SQL_PORT: ${process.env.SQL_PORT ? "DEFINED" : "UNDEFINED"}`);
+
+  // Prioritize individual SQL parameters if they are supplied (like your new Neon database credentials)
+  const useIndividual = hasIndividual;
+  
+  if (useIndividual) {
+    console.log(`[ZenPlan DB] Mode: Prioritizing Individual Parameters (Neon DB). Host: ${process.env.SQL_HOST}, User: ${process.env.SQL_USER}, DB: ${process.env.SQL_DB_NAME}, Port: ${process.env.SQL_PORT || "5432"}`);
+  } else if (hasUrl) {
+    const maskedUrl = process.env.DATABASE_URL!.replace(/:[^:@\n]+@/, ":****@");
+    console.log(`[ZenPlan DB] Mode: Falling back to DATABASE_URL Connection String. Masked URL: ${maskedUrl}`);
+  }
+
+  const poolConfig = useIndividual
     ? {
-        connectionString: process.env.DATABASE_URL,
-        connectionTimeoutMillis: 15000,
-        ssl: { rejectUnauthorized: false },
-      }
-    : {
         host: process.env.SQL_HOST,
         user: process.env.SQL_USER,
         password: process.env.SQL_PASSWORD,
         database: process.env.SQL_DB_NAME,
-        port: process.env.SQL_PORT ? parseInt(process.env.SQL_PORT, 10) : 6543,
+        port: process.env.SQL_PORT ? parseInt(process.env.SQL_PORT, 10) : 5432,
+        connectionTimeoutMillis: 15000,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        connectionString: process.env.DATABASE_URL,
         connectionTimeoutMillis: 15000,
         ssl: { rejectUnauthorized: false },
       };

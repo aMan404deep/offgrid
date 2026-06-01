@@ -37,22 +37,32 @@ const sandboxCache: Record<string, DbEmployee> = {};
  */
 export async function getEmployeeByEmail(email: string): Promise<DbEmployee | null> {
   const normEmail = email.trim().toLowerCase();
+  console.log(`[ZenPlan DB Query] Finding employee by email: "${normEmail}"`);
   
   try {
     if (!dbStatus.isConfigured) {
-      console.log(`[ZenQuery Fallback] Local server cache fetch: ${email}`);
-      return sandboxCache[normEmail] || null;
+      console.log(`[ZenPlan DB Query] [Fallback Mode] Local memory cache fetch for: "${normEmail}"`);
+      const cached = sandboxCache[normEmail] || null;
+      console.log(`[ZenPlan DB Query] [Fallback Mode] Cache result: ${cached ? "FOUND" : "NOT FOUND"}`);
+      return cached;
     }
 
+    console.log(`[ZenPlan DB Query] Executing database query "SELECT FROM employees WHERE email = '${normEmail}'"...`);
     const records = await db
       .select()
       .from(employees)
       .where(eq(employees.email, normEmail));
     
-    return (records[0] as DbEmployee) || null;
-  } catch (error) {
-    console.error(`[ZenQuery Exception] Failed to query DB for employee: ${email}`, error);
-    throw new Error("Database query failed. Please ensure schema matches active definition.", { cause: error });
+    const found = (records[0] as DbEmployee) || null;
+    console.log(`[ZenPlan DB Query] Database query execution finished. Employee found? ${found ? "YES" : "NO"}`);
+    if (found) {
+      console.log(`[ZenPlan DB Query] Retrieved record: ID=${found.id}, Name="${found.name}", Role="${found.role}", Location="${found.location}"`);
+    }
+    return found;
+  } catch (error: any) {
+    console.error(`[ZenPlan DB Query] [ERROR] Failed to query database for email "${normEmail}"!`, error);
+    console.error(`[ZenPlan DB Query] [ERROR Details] Message: ${error.message}, Code: ${error.code || "N/A"}`);
+    throw new Error(`Database query failed for "${normEmail}". Please ensure schema matches active definition.`, { cause: error });
   }
 }
 
@@ -62,6 +72,7 @@ export async function getEmployeeByEmail(email: string): Promise<DbEmployee | nu
 export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> {
   const email = employee.email.trim();
   const normEmail = email.toLowerCase();
+  console.log(`[ZenPlan DB Write] Start upsert employee process for: "${normEmail}"`);
 
   try {
     // 1. Get existing employee from database or cache (if any)
@@ -105,15 +116,27 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
       email: normEmail, // strictly enforce normalized email
     };
 
+    console.log(`[ZenPlan DB Write] Merged database data payload for insert/update:`);
+    console.log(JSON.stringify({ 
+      email: merged.email, 
+      name: merged.name, 
+      role: merged.role, 
+      avatar: merged.avatar || "(empty string)", 
+      location: merged.location, 
+      level: merged.level 
+    }, null, 2));
+
     if (!dbStatus.isConfigured) {
-      console.log(`[ZenQuery Fallback] Local server cache upsert: ${email}`);
+      console.log(`[ZenPlan DB Write] [Fallback Mode] Saving to local memory cache...`);
       sandboxCache[normEmail] = {
         ...merged,
         updatedAt: new Date(),
       };
+      console.log(`[ZenPlan DB Write] [Fallback Mode] Saved in memory cache successfully.`);
       return sandboxCache[normEmail];
     }
 
+    console.log(`[ZenPlan DB Write] Executing PostgreSQL Upsert Query in database...`);
     const insertedRows = await db
       .insert(employees)
       .values({
@@ -167,9 +190,16 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
       })
       .returning();
 
-    return insertedRows[0] as DbEmployee;
-  } catch (error) {
-    console.error(`[ZenQuery Exception] Failed to persist employee: ${employee.name || email}`, error);
+    console.log(`[ZenPlan DB Write] SQL Query executed successfully! Rows returned count: ${insertedRows.length}`);
+    const persisted = insertedRows[0] as DbEmployee;
+    console.log(`[ZenPlan DB Write] Persisted Database Row: ID=${persisted.id}, Email="${persisted.email}", Name="${persisted.name}"`);
+    return persisted;
+  } catch (error: any) {
+    console.error(`[ZenPlan DB Write] [ERROR] Failed to save employee "${employee.name || email}"!`, error);
+    console.error(`[ZenPlan DB Write] [ERROR Details] Error message: ${error.message}`);
+    if (error.code) {
+      console.error(`[ZenPlan DB Write] [ERROR Details] Database Error Code: ${error.code} (e.g., 23502 = Not Null Violation, 23505 = Unique Constraint)`);
+    }
     throw new Error("Database persistence failed. Verify database connectivity and user privileges.", { cause: error });
   }
 }

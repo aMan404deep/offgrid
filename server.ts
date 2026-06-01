@@ -175,18 +175,24 @@ app.get("/api/health", (req, res) => {
 // 1.2. Custom Code-Level Authentication endpoints (uses Supabase strictly as a PostgreSQL database)
 app.post("/api/auth/signup", async (req, res) => {
   const { email, password } = req.body;
+  console.log(`[ZenPlan API - Signup] Received signup request for: "${email || "N/A"}". Password length: ${password ? password.length : 0} chars.`);
+
   if (!email || !password) {
+    console.warn("[ZenPlan API - Signup] Rejected: Email and password are required.");
     return res.status(400).json({ error: "Email and password are required." });
   }
 
   try {
     const normEmail = email.trim().toLowerCase();
+    console.log(`[ZenPlan API - Signup] Checking if account already exists for "${normEmail}"...`);
     const existingEmployee = await getEmployeeByEmail(normEmail);
 
     if (existingEmployee && existingEmployee.passwordHash) {
+      console.warn(`[ZenPlan API - Signup] Rejected: Account already exists with password for "${normEmail}".`);
       return res.status(400).json({ error: "An account with this email already exists. Please login." });
     }
 
+    console.log(`[ZenPlan API - Signup] Creating password credentials hash & salt...`);
     const { salt, hash } = hashPassword(password);
 
     const baseEmp = {
@@ -213,43 +219,53 @@ app.post("/api/auth/signup", async (req, res) => {
       passwordSalt: salt,
     };
 
-    // If existing record was a legacy record or mock without password, this will preserve credentials on upsert
+    console.log(`[ZenPlan API - Signup] Upserting signup record into database...`);
     await upsertEmployee(baseEmp);
 
+    console.log(`[ZenPlan API - Signup] Signup successful for "${normEmail}".`);
     return res.json({ success: true, needsSetup: true, email: normEmail });
   } catch (error: any) {
-    console.error("[ZenPlan Server] Sign up error:", error);
+    console.error(`[ZenPlan API - Signup] [ERROR] Handled exception:`, error);
     return res.status(500).json({ error: "Signup failed.", details: error.message });
   }
 });
 
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
+  console.log(`[ZenPlan API - Login] Received login request for: "${email || "N/A"}".`);
+
   if (!email || !password) {
+    console.warn("[ZenPlan API - Login] Rejected: Email and password are required.");
     return res.status(400).json({ error: "Email and password are required." });
   }
 
   try {
     const normEmail = email.trim().toLowerCase();
+    console.log(`[ZenPlan API - Login] Fetching employee profile for "${normEmail}"...`);
     const employee = await getEmployeeByEmail(normEmail);
 
     if (!employee) {
+      console.warn(`[ZenPlan API - Login] Rejected: Account not found for "${normEmail}".`);
       return res.status(400).json({ error: "Account not found. Please click 'Create Account' to sign up first." });
     }
 
     if (!employee.passwordHash || !employee.passwordSalt) {
+      console.warn(`[ZenPlan API - Login] Rejected: "${normEmail}" has no login credentials registered.`);
       return res.status(400).json({ error: "This email exists but does not have password credentials. Please sign up to set your password." });
     }
 
+    console.log(`[ZenPlan API - Login] Re-hashing & verifying salt & password...`);
     const isValid = verifyPassword(password, employee.passwordSalt, employee.passwordHash);
     if (!isValid) {
+      console.warn(`[ZenPlan API - Login] Rejected: Incorrect password for "${normEmail}".`);
       return res.status(400).json({ error: "Incorrect password. Please try again." });
     }
 
     // Success! Return user profile
+    console.log(`[ZenPlan API - Login] Successfully authenticated employee "${normEmail}" (ID: ${employee.id || "N/A"}).`);
     return res.json({ success: true, data: employee });
   } catch (error: any) {
-    console.error("[ZenPlan Server] Login error:", error);
+    console.error(`[ZenPlan API - Login] [ERROR] Handled exception:`, error);
     return res.status(500).json({ error: "Login failed.", details: error.message });
   }
 });
@@ -258,18 +274,23 @@ app.post("/api/auth/login", async (req, res) => {
 // 1.5. DB Employee records synchronization endpoints (Cloud SQL PostgreSQL integration)
 app.get("/api/employee", async (req, res) => {
   const email = req.query.email;
+  console.log(`[ZenPlan API - GET Employee] Fetching employee for profile synchronization: "${email || "N/A"}"`);
+
   if (!email || typeof email !== "string") {
+    console.warn("[ZenPlan API - GET Employee] Rejected: Email is missing or not a string.");
     return res.status(400).json({ error: "Employee email is required as a query parameter." });
   }
 
   try {
     const employee = await getEmployeeByEmail(email);
     if (!employee) {
+      console.log(`[ZenPlan API - GET Employee] Profile not found for "${email}". Returning { exists: false }.`);
       return res.json({ exists: false });
     }
+    console.log(`[ZenPlan API - GET Employee] Found profile for "${email}"!`);
     return res.json({ exists: true, data: employee });
   } catch (error: any) {
-    console.error("[ZenPlan Server] Error in GET /api/employee route:", error);
+    console.error(`[ZenPlan API - GET Employee] [ERROR] Handled exception:`, error);
     return res.status(500).json({
       error: "Failed to retrieve employee record from PostgreSQL.",
       details: error.message
@@ -279,15 +300,20 @@ app.get("/api/employee", async (req, res) => {
 
 app.post("/api/employee", async (req, res) => {
   const { email, name } = req.body;
+  console.log(`[ZenPlan API - POST Employee] Update request received for: "${email || "N/A"}" (Name: "${name || "N/A"}").`);
+
   if (!email || !name) {
+    console.warn("[ZenPlan API - POST Employee] Rejected: missing email or name in request body.");
     return res.status(400).json({ error: "Employee email and name is required in request body." });
   }
 
   try {
+    console.log(`[ZenPlan API - POST Employee] Initiating upsert operation...`);
     const result = await upsertEmployee(req.body);
+    console.log(`[ZenPlan API - POST Employee] Successfully saved updated profile row!`);
     return res.json({ success: true, data: result });
   } catch (error: any) {
-    console.error("[ZenPlan Server] Error in POST /api/employee route:", error);
+    console.error(`[ZenPlan API - POST Employee] [ERROR] Handled exception:`, error);
     return res.status(500).json({
       error: "Failed to save employee records into PostgreSQL database.",
       details: error.message
@@ -626,7 +652,9 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: "spa",
     });
-    app.use(vite.middlewares);
+    app.use((req, res, next) => {
+      vite.middlewares(req, res, next);
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
