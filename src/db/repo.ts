@@ -122,7 +122,7 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
 
     return insertedRows[0] as DbEmployee;
   } catch (error) {
-    console.error(`[ZenQuery Exception] Failed to persist employee: ${name}`, error);
+    console.error(`[ZenQuery Exception] Failed to persist employee: ${employee.name}`, error);
     throw new Error("Database persistence failed. Verify database connectivity and user privileges.", { cause: error });
   }
 }
