@@ -16,6 +16,59 @@ export const FinalizeSyncView: React.FC = () => {
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const downloadFile = (filename: string, content: string, mimeType: string = "text/plain") => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadSummary = () => {
+    triggerToast("Downloading trip overview summary...");
+    
+    const summaryText = `============================================================
+              ZENPLAN OFFGRID TRIP SUMMARY
+============================================================
+Reference ID   : ID-4428
+Employee Name  : ${user.name}
+Email Address  : ${user.email}
+Regional Office: Noida HQ
+Trip Location  : ${currentTripLocation} Retreat
+
+9-DAY CALENDAR LOOP BREAKDOWN:
+------------------------------------------------------------
+- Sat, Oct 10 : Weekend Rest (Free Day)
+- Sun, Oct 11 : Weekend Rest (Free Day)
+- Mon, Oct 12 : Earned Leave (EL) (Applied)
+- Tue, Oct 13 : Earned Leave (EL) (Applied)
+- Wed, Oct 14 : Dussehra Corporate Holiday (Public)
+- Thu, Oct 15 : Corporate Holiday Swap (for May Day)
+- Fri, Oct 16 : Compnce Off Day (Used Balance)
+- Sat, Oct 17 : Weekend Rest (Free Day)
+- Sun, Oct 18 : Weekend Rest (Free Day)
+
+TRANSACTION SAFETY SUMMARY:
+- Loss of Pay (LOP) check: Passed / Clean
+- Accrual safety boundary: Safe (Under 40 EL limit)
+- Noida regional configuration matched and synced.
+- Overall Multiplier: 4.5x LOP ROI
+
+Status: READY TO EXECUTE SYNC TO HRMS
+Generated on: ${new Date().toISOString().split('T')[0]}
+============================================================`;
+
+    downloadFile(`Trip_Summary_${currentTripLocation}.txt`, summaryText.trim());
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -162,14 +215,14 @@ export const FinalizeSyncView: React.FC = () => {
             <div className="border-t border-[#eae7e7] pt-5 flex items-center justify-between font-sans">
               <div className="flex gap-2.5">
                 <button
-                  onClick={() => triggerToast("Readying printable PDF template sheets...")}
+                  onClick={handlePrint}
                   className="px-4 py-2 bg-white hover:bg-[#f6f3f2] border border-[#eae7e7] text-[#564337] rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Details</span>
                 </button>
                 <button
-                  onClick={() => triggerToast("Downloading PDF trip overview breakdown...")}
+                  onClick={handleDownloadSummary}
                   className="px-4 py-2 bg-white hover:bg-[#f6f3f2] border border-[#eae7e7] text-[#564337] rounded-md text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" />

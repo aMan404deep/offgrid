@@ -87,7 +87,7 @@ if (hasDBCredentials) {
           "budget_level" integer NOT NULL DEFAULT 2,
           "prioritize_roi" boolean NOT NULL DEFAULT true,
           "prioritize_lowest_cost" boolean NOT NULL DEFAULT false,
-          "current_trip_location" text NOT NULL DEFAULT 'Coimbatore',
+          "current_trip_location" text NOT NULL DEFAULT '',
           "is_trip_locked" boolean NOT NULL DEFAULT false,
           "active_holiday_swaps" text NOT NULL DEFAULT '{}',
           "password_hash" text,

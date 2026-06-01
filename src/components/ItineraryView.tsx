@@ -23,17 +23,11 @@ function getCoordsForName(name: string, isOrigin: boolean = false) {
     if (norm.includes("bangalore") || norm.includes("bengaluru")) {
       return { x: 140, y: 250, lat: "12.9716° N", lon: "77.5946° E" };
     }
-    if (norm.includes("coimbatore")) {
-      return { x: 130, y: 260, lat: "11.0168° N", lon: "76.9558° E" };
-    }
     // generic origin math
     const x = 80 + (hash % 60);
     const y = 100 + (hash % 100);
     return { x, y, lat: `${(12 + (hash % 15)).toFixed(4)}° N`, lon: `${(72 + (hash % 10)).toFixed(4)}° E` };
   } else {
-    if (norm.includes("coimbatore")) {
-      return { x: 140, y: 260, lat: "11.0168° N", lon: "76.9558° E" };
-    }
     if (norm.includes("manali")) {
       return { x: 120, y: 40, lat: "32.2396° N", lon: "77.1887° E" };
     }
@@ -138,7 +132,7 @@ export const ItineraryView: React.FC = () => {
   // Comparison Mode States
   const [isCompareMode, setIsCompareMode] = useState(false);
   const [destA, setDestA] = useState(currentTripLocation);
-  const [destB, setDestB] = useState("Manali");
+  const [destB, setDestB] = useState("");
 
   // Autocomplete Focus Active field: 'main' | 'destA' | 'destB' | null
   const [activeSuggestionsField, setActiveSuggestionsField] = useState<"main" | "destA" | "destB" | null>(null);
@@ -221,7 +215,43 @@ export const ItineraryView: React.FC = () => {
       
       pdf.save(`Itinerary_${currentTripLocation}.pdf`);
     } catch (error) {
-      console.error("Failed to generate PDF", error);
+      console.warn("PDF generation failed or blocked by iframe sandbox. Downloading text-based itinerary fallback...", error);
+      
+      // Beautiful offline-ready high-fidelity text itinerary fallback
+      let textItinerary = `============================================================\n`;
+      textItinerary += `          OFFGRID ZENPLAN DETAILED OPTIMIZED ITINERARY      \n`;
+      textItinerary += `============================================================\n`;
+      textItinerary += `Employee Name : ${user.name}\n`;
+      textItinerary += `Home Terminal : ${user.location}\n`;
+      textItinerary += `Destination   : ${currentTripLocation} Retreat\n`;
+      textItinerary += `Total Duration: 9 Consecutive Rest Days\n`;
+      textItinerary += `Leaves Used   : 2 Earned Leaves (EL) Days\n`;
+      textItinerary += `LOP ROI Ratio : 4.5x Optimization Multiplier\n`;
+      textItinerary += `============================================================\n\n`;
+      
+      itinerary.forEach((day) => {
+        textItinerary += `------------------------------------------------------------\n`;
+        textItinerary += `DAY ${day.dayNumber} - ${day.dateStr} | ${day.title}\n`;
+        textItinerary += `------------------------------------------------------------\n`;
+        day.activities.forEach((act) => {
+          textItinerary += `[${act.time}] (${act.category}) ${act.title}\n`;
+          textItinerary += `  ${act.description}\n\n`;
+        });
+      });
+      
+      textItinerary += `============================================================\n`;
+      textItinerary += `Generated via OffGrid ZenPlan & Noida HQ HRMS Registries\n`;
+      textItinerary += `============================================================\n`;
+      
+      const blob = new Blob([textItinerary.trim()], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Itinerary_${currentTripLocation}_Detailed_Schedule.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } finally {
       setIsDownloading(false);
     }

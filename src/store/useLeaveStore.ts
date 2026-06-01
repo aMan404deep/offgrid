@@ -242,13 +242,13 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
     isCommandPaletteOpen: false,
     
     activeHolidaySwaps: {},
-    currentTripLocation: "Coimbatore",
+    currentTripLocation: "",
     isTripLocked: false,
     activeStreakDays: [
       "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", 
       "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"
     ], // 9 days off (Oct 10 Saturday to Oct 18 Sunday), only requiring 2 days of real Earned Leaves
-    itinerary: getDynamicFallbackItinerary("Coimbatore", 2),
+    itinerary: getDynamicFallbackItinerary("", 2),
     isGeneratingItinerary: false,
     budgetForecast: {
       flights: 14500,
@@ -352,7 +352,7 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
         budgetLevel: 2,
         prioritizeROI: true,
         prioritizeLowestCost: false,
-        currentTripLocation: "Coimbatore",
+        currentTripLocation: "",
         isTripLocked: false,
         activeHolidaySwaps: "{}"
       };

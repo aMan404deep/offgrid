@@ -24,7 +24,7 @@ export const employees = pgTable("employees", {
   prioritizeLowestCost: boolean("prioritize_lowest_cost").notNull().default(false),
 
   // Current session/trip state
-  currentTripLocation: text("current_trip_location").notNull().default("Coimbatore"),
+  currentTripLocation: text("current_trip_location").notNull().default(""),
   isTripLocked: boolean("is_trip_locked").notNull().default(false),
   activeHolidaySwaps: text("active_holiday_swaps").notNull().default("{}"), // Stringified JSON
   passwordHash: text("password_hash"),

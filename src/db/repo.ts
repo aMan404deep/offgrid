@@ -96,7 +96,7 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
       budgetLevel: 2,
       prioritizeROI: true,
       prioritizeLowestCost: false,
-      currentTripLocation: "Coimbatore",
+      currentTripLocation: "",
       isTripLocked: false,
       activeHolidaySwaps: "{}",
       passwordHash: null,

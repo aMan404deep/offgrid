@@ -9,8 +9,10 @@ export const ProfileView: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Generate a shareable mock link representing Page 6
-  const shareableURL = "https://zenplan.com/itinerary/alex-coimbatore-retreat";
+  // Dynamic link generation based on the active origin, user profile name, and current trip location
+  const nameSlug = user.name ? encodeURIComponent(user.name.toLowerCase().trim().replace(/\s+/g, '-')) : "alex";
+  const locSlug = currentTripLocation ? encodeURIComponent(currentTripLocation.toLowerCase().trim().replace(/\s+/g, '-')) : "vacation";
+  const shareableURL = `${window.location.origin}/itinerary/${nameSlug}-${locSlug}-retreat`;
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
@@ -26,8 +28,196 @@ export const ProfileView: React.FC = () => {
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
+  // Client-side instant blob downloader
+  const downloadFile = (filename: string, content: string, mimeType: string = "text/plain") => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleDownloadReport = () => {
     triggerToast("Generating your high-resolution Infographic Report Card PDF report...");
+    
+    const htmlReport = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ZenPlan Travel Optimization Report - ${user.name}</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fafafa; color: #1c1b1b; padding: 40px; margin: 0; }
+    .card { background: white; border: 1px solid #eae7e7; border-radius: 16px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
+    .header { background: #0c0a09; color: white; padding: 24px; position: relative; }
+    .header h1 { margin: 0; font-size: 20px; letter-spacing: -0.5px; }
+    .header p { margin: 8px 0 0 0; font-size: 12px; color: #a8a29e; }
+    .badge { position: absolute; right: 24px; top: 24px; background: rgba(0, 176, 92, 0.1); border: 1px solid rgba(0, 176, 92, 0.3); color: #00b05c; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    .content { padding: 24px; }
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-item { background: #fdfdfd; border: 1px solid #eae7e7; padding: 16px; border-radius: 8px; text-align: center; }
+    .stat-val { font-size: 22px; font-weight: 800; color: #944a00; margin: 4px 0; }
+    .stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #78716c; }
+    .itinerary { border-top: 1px dashed #eae7e7; padding-top: 24px; }
+    .itinerary h3 { margin: 0 0 16px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #57534e; }
+    .day-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f5f5f5; font-size: 12px; }
+    .day-date { font-weight: bold; }
+    .day-label { color: #564337; }
+    .day-type { font-size: 10px; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+    .footer { background: #fdfdfd; border-top: 1px solid #eae7e7; padding: 16px; text-align: center; font-size: 10px; color: #a8a29e; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="badge">4.5x LOP ROI</div>
+      <h1>${user.name}</h1>
+      <p>Official Travel Optimization Report Card &bull; ${user.role}</p>
+    </div>
+    <div class="content">
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-lbl">Rest Days Secured</div>
+          <div class="stat-val">9 Days</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-lbl">Leave Leaves Used</div>
+          <div class="stat-val">2 EL Days</div>
+        </div>
+      </div>
+      <div class="itinerary">
+        <h3>Secured Schedule Parameters (${currentTripLocation} Retreat)</h3>
+        <div class="day-row">
+          <span class="day-date">Sat, Oct 10</span>
+          <span class="day-label">Weekend Rest</span>
+          <span class="day-type">Free Day</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Sun, Oct 11</span>
+          <span class="day-label">Weekend Rest</span>
+          <span class="day-type">Free Day</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Mon, Oct 12</span>
+          <span class="day-label">Earned Leave (EL)</span>
+          <span class="day-type" style="background:#ffdcc5; color:#944a00;">Applied</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Tue, Oct 13</span>
+          <span class="day-label">Earned Leave (EL)</span>
+          <span class="day-type" style="background:#ffdcc5; color:#944a00;">Applied</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Wed, Oct 14</span>
+          <span class="day-label">Dussehra Corporate Holiday</span>
+          <span class="day-type" style="background:#dcfce7; color:#15803d;">Public</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Thu, Oct 15</span>
+          <span class="day-label">Corporate Holiday Swap</span>
+          <span class="day-type" style="background:#fef9c3; color:#a16207;">Swapped</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Fri, Oct 16</span>
+          <span class="day-label">Compence Off Day</span>
+          <span class="day-type" style="background:#dcfce7; color:#15803d;">Comp-Off</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Sat, Oct 17</span>
+          <span class="day-label">Weekend Rest</span>
+          <span class="day-type">Free Day</span>
+        </div>
+        <div class="day-row">
+          <span class="day-date">Sun, Oct 18</span>
+          <span class="day-label">Weekend Rest</span>
+          <span class="day-type">Free Day</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      Generated via OffGrid ZenPlan &bull; Regional HRMS Noida HQ Audited
+    </div>
+  </div>
+</body>
+</html>`;
+
+    downloadFile(`Travel_Optimization_Report_${currentTripLocation}.html`, htmlReport.trim(), "text/html");
+  };
+
+  const handleDownloadPolicy = () => {
+    const policyContent = `============================================================
+              ARRISE LEAVE POLICY (INDIA) - 2026
+============================================================
+Document Reference: AR-HR-LPO-2026-IN
+Status: APPROVED & AUDITED
+Jurisdiction: Delhi / Noida regional HQ
+
+1. CATEGORIES OF TIME-OFF
+------------------------------------------------------------
+- Earned Leave (EL): 14 Days standard annual credit.
+  * Maximum accrual limit: 40 Days.
+  * Any accrual above 40 days will require mandatory utilization
+    or expire at the end of the rolling 12-month period.
+- Casual Leave (CL): 6 Days standard.
+- Sick Leave (SL): 6 Days standard.
+- Compensatory Off (Comp-Off):
+  * Earned by working on recognized holidays or weekends under
+    approved sprint plans.
+  * Must be scheduled or consumed within forty-five (45) days
+    of accrual, else it lapses in HRMS.
+
+2. LONG WEEKEND OPTIMIZATION SCHEME (ZENPLAN)
+------------------------------------------------------------
+- Employees of Arrise are encouraged to utilize ZenPlan
+  algorithms to line up regional holiday swaps (e.g. swapping
+  fixed regional holidays for recognized floaters).
+- Pre-checks must be run to guarantee zero Loss of Pay (LOP)
+  before vacation execution.
+
+This is an offgrid-compiled copy of the official policy.
+For any questions, reach out to Chennai/Delhi HR partners.
+============================================================`;
+    downloadFile("Arrise_Leave_Policy_India_2026.txt", policyContent.trim());
+    triggerToast("Arrise_Leave_Policy_India_2026.txt downloaded successfully!");
+  };
+
+  const handleDownloadGuide = () => {
+    const guideContent = `============================================================
+        ARRISE TRAVEL OPTIMIZATION TACTICS GUIDE (V1)
+============================================================
+Reference: OPT-OFFGRID-MAX-STREAK
+
+Maximize your relaxation time by optimizing your corporate calendars!
+
+1. THE GOLDEN LOOP
+   Lining up a 9-Day vacation stretch:
+   - Saturday: Weekend Rest
+   - Sunday: Weekend Rest
+   - Monday: Applied Earned Leave (EL)
+   - Tuesday: Applied Earned Leave (EL)
+   - Wednesday: Regional Fixed Holiday
+   - Thursday: Swapped Floater Holiday
+   - Friday: Used Comp-Off Balance
+   - Saturday: Weekend Rest
+   - Sunday: Weekend Rest
+   
+   Total consecutive Rest Days: 9 days
+   Real official leave days consumed: Only 2 Earned Leaves!
+   Optimization ROI: 4.5x multiplier
+
+2. FLOATING HOLIDAY SWAP TACTIC
+   - Review the municipal list of recognized floating holidays.
+   - Trade a low-impact fixed holiday (e.g., mid-week isolated)
+     for an adjacent floater holiday to bridge weekend gaps.
+   - Execute the official transaction inside the ZenPlan HRMS integration.
+
+Keep traveling, keep optimizing!
+============================================================`;
+    downloadFile("Travel_Optimization_Tactics_v1.txt", guideContent.trim());
+    triggerToast("Travel_Optimization_Tactics_v1.txt downloaded successfully!");
   };
 
   const handleAvatarClick = () => {
@@ -46,10 +236,6 @@ export const ProfileView: React.FC = () => {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleResourceClick = (name: string) => {
-    triggerToast(`Exporting local resource: ${name}...`);
   };
 
   return (
@@ -170,7 +356,7 @@ export const ProfileView: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-sans">
               <a
                 href="#download-policy"
-                onClick={(e) => { e.preventDefault(); handleResourceClick("Arrise_Leave_Policy_India_2026.pdf"); }}
+                onClick={(e) => { e.preventDefault(); handleDownloadPolicy(); }}
                 className="p-3 bg-white border border-[#eae7e7] hover:bg-[#f6f3f2] transition-colors rounded-md flex items-center justify-between text-xs font-semibold text-[#564337]"
               >
                 <span>Download Arrise Leave Policy (India)</span>
@@ -178,11 +364,11 @@ export const ProfileView: React.FC = () => {
               </a>
               <a
                 href="#download-guides"
-                onClick={(e) => { e.preventDefault(); handleResourceClick("Travel_Optimization_Tactics_v1.pdf"); }}
+                onClick={(e) => { e.preventDefault(); handleDownloadGuide(); }}
                 className="p-3 bg-white border border-[#eae7e7] hover:bg-[#f6f3f2] transition-colors rounded-md flex items-center justify-between text-xs font-semibold text-[#564337]"
               >
                 <span>Read Travel Optimization Guide</span>
-                <ExternalLink className="w-4 h-4 text-stone-400" />
+                <ExternalLink className="w-4 h-4 text-stone-450" />
               </a>
             </div>
           </div>
@@ -196,7 +382,7 @@ export const ProfileView: React.FC = () => {
               <span className="text-[10px] font-mono text-[#897365] font-bold uppercase tracking-wider block mb-0.5">Shareable Asset</span>
               <h3 className="text-base font-bold text-[#1c1b1b]">Trip Masterpiece Card</h3>
               <p className="text-xs text-[#564337] mt-1 leading-normal">
-                An optimized visual ticket representing your high-efficiency Coimbatore itinerary. Zero sensitive leave balance details shown.
+                An optimized visual ticket representing your high-efficiency {currentTripLocation} itinerary. Zero sensitive leave balance details shown.
               </p>
             </div>
 
@@ -211,7 +397,7 @@ export const ProfileView: React.FC = () => {
               <div className="flex justify-between items-start z-10">
                 <div>
                   <h4 className="text-xs font-black tracking-widest text-[#ffbf00] font-mono">ZENPLAN TICKET</h4>
-                  <p className="text-[9px] text-[#897365] font-mono mt-0.5">ID: ALEX-COIMBATORE-2026</p>
+                  <p className="text-[9px] text-[#897365] font-mono mt-0.5">ID: {user.name ? user.name.toUpperCase().replace(/\s+/g, '-') : "ALEX"}-{currentTripLocation.toUpperCase().replace(/\s+/g, '-')}-2026</p>
                 </div>
                 <div className="bg-[#00b05c]/10 border border-[#00b05c]/30 text-[#00b05c] px-2 py-1 rounded text-[10px] font-mono font-bold uppercase">
                   4.5x ROI

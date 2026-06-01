@@ -14,24 +14,24 @@ import {
 } from "lucide-react";
 
 // Mock data for Zen Graph (Stress/Work ratio vs Recovery days)
-const ZEN_GRAPH_DATA = [
-  { name: "Jul 01", stressLevel: 65, restTime: 10, label: "Work Block" },
-  { name: "Jul 15", stressLevel: 80, restTime: 5, label: "Stress Peak" },
-  { name: "Jul 20", stressLevel: 30, restTime: 90, label: "Short Rest Weekend" },
-  { name: "Aug 05", stressLevel: 85, restTime: 0, label: "On Call" },
-  { name: "Aug 20", stressLevel: 90, restTime: 10, label: "Burnout Risk Zone" },
-  { name: "Sep 10", stressLevel: 45, restTime: 30, label: "Normal Working" },
-  { name: "Oct 12", stressLevel: 10, restTime: 95, label: "Projected Coimbatore Trip (9 days of Rest)" },
-  { name: "Nov 01", stressLevel: 40, restTime: 50, label: "Steady State" }
-];
-
 export const DashboardView: React.FC = () => {
-  const { user, leaveBalances, setTab, generateItinerary } = useLeaveStore();
+  const { user, leaveBalances, setTab, generateItinerary, currentTripLocation } = useLeaveStore();
 
   const handleExploreNudge = () => {
-    generateItinerary("Coimbatore");
+    generateItinerary(currentTripLocation);
     setTab("itinerary");
   };
+
+  const dynamicGraphData = [
+    { name: "Jul 01", stressLevel: 65, restTime: 10, label: "Work Block" },
+    { name: "Jul 15", stressLevel: 80, restTime: 5, label: "Stress Peak" },
+    { name: "Jul 20", stressLevel: 30, restTime: 90, label: "Short Rest Weekend" },
+    { name: "Aug 05", stressLevel: 85, restTime: 0, label: "On Call" },
+    { name: "Aug 20", stressLevel: 90, restTime: 10, label: "Burnout Risk Zone" },
+    { name: "Sep 10", stressLevel: 45, restTime: 30, label: "Normal Working" },
+    { name: "Oct 12", stressLevel: 10, restTime: 95, label: `Projected ${currentTripLocation} Trip` },
+    { name: "Nov 01", stressLevel: 40, restTime: 50, label: "Steady State" }
+  ];
 
   return (
     <div id="dashboard-wrapper" className="space-y-6 animate-fade-in font-sans pb-12 select-none relative z-10">
@@ -77,7 +77,7 @@ export const DashboardView: React.FC = () => {
             className="px-5 py-3 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start lg:self-auto cursor-pointer shadow-md active:translate-y-0.5 shrink-0"
           >
             <Compass className="w-4 h-4 text-white" />
-            <span>Auto-Generate Coimbatore Blueprint</span>
+            <span>Auto-Generate {currentTripLocation} Blueprint</span>
             <ArrowRight className="w-4 h-4 text-white" />
           </button>
         </div>
@@ -233,7 +233,7 @@ export const DashboardView: React.FC = () => {
         {/* Recharts container styled as custom grid */}
         <div className="w-full h-72">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={ZEN_GRAPH_DATA} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+            <AreaChart data={dynamicGraphData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
               <XAxis dataKey="name" stroke="#897365" fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke="#897365" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />
               <Tooltip

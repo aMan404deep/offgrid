@@ -21,13 +21,19 @@ export default function App() {
     isSidebarCollapsed, 
     isMobileSidebarOpen, 
     setMobileSidebarOpen,
-    checkAutoLogin
+    checkAutoLogin,
+    setTab
   } = useLeaveStore();
 
   const [isMobile, setIsMobile] = React.useState(false);
 
   useEffect(() => {
-    checkAutoLogin();
+    // Check if user is accessing via a shareable itinerary link
+    if (window.location.pathname.includes("/itinerary/")) {
+      setTab("shared");
+    } else {
+      checkAutoLogin();
+    }
   }, []);
 
   useEffect(() => {

@@ -171,6 +171,45 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Temporary endpoint to list & delete dummy database columns and entries
+app.get("/api/admin/cleanup", async (req, res) => {
+  try {
+    const { db, dbStatus } = await import("./src/db/index.ts");
+    const { employees } = await import("./src/db/schema.ts");
+    const { sql } = await import("drizzle-orm");
+
+    if (!dbStatus.isConfigured) {
+      return res.json({
+        success: false,
+        message: "Database is not configured/offline."
+      });
+    }
+
+    // Unordered fetch before deletion
+    const beforeList = await db.select({ id: employees.id, email: employees.email, name: employees.name, role: employees.role }).from(employees);
+
+    // Delete dummy rows (startsWith 'dummy' or is 'temp@arrisesolutions.com')
+    const result = await db.execute(sql`
+      DELETE FROM employees 
+      WHERE email LIKE 'dummy%' 
+         OR email = 'temp@arrisesolutions.com'
+    `);
+
+    const afterList = await db.select({ id: employees.id, email: employees.email, name: employees.name, role: employees.role }).from(employees);
+
+    return res.json({
+      success: true,
+      message: `Database pruned successfully. Deleted ${result.rowCount || 0} dummy rows.`,
+      deletedCount: result.rowCount || 0,
+      before: beforeList,
+      after: afterList
+    });
+  } catch (err: any) {
+    console.error("[Cleanup Endpoint Error]", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 
 // 1.2. Custom Code-Level Authentication endpoints (uses Supabase strictly as a PostgreSQL database)
 app.post("/api/auth/signup", async (req, res) => {
@@ -212,7 +251,7 @@ app.post("/api/auth/signup", async (req, res) => {
       budgetLevel: 2,
       prioritizeROI: true,
       prioritizeLowestCost: false,
-      currentTripLocation: "Coimbatore",
+      currentTripLocation: "",
       isTripLocked: false,
       activeHolidaySwaps: "{}",
       passwordHash: hash,
@@ -393,7 +432,7 @@ app.post("/api/policy-chat", async (req, res) => {
 app.post("/api/generate-itinerary", async (req, res) => {
   const { destination, days = 9, baseLocation, vibe = "Mountains", isLuxury = false, budgetLevel = 2 } = req.body;
 
-  const resolvedDestination = destination || "Coimbatore";
+  const resolvedDestination = destination || "";
   
   const ai = getGeminiClient();
 
