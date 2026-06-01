@@ -33,7 +33,7 @@ export interface DbEmployee {
 const sandboxCache: Record<string, DbEmployee> = {};
 
 /**
- * Retrieves an employee record by name.
+ * Retrieves an employee record by email.
  */
 export async function getEmployeeByEmail(email: string): Promise<DbEmployee | null> {
   const normEmail = email.trim().toLowerCase();
@@ -64,10 +64,51 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
   const normEmail = email.toLowerCase();
 
   try {
+    // 1. Get existing employee from database or cache (if any)
+    const existing = await getEmployeeByEmail(normEmail);
+
+    // 2. Define standard default values for mandatory fields
+    const defaultTemplate: DbEmployee = {
+      email: normEmail,
+      name: "New Joiner",
+      role: "Optimizer",
+      avatar: "",
+      location: "Noida",
+      level: "Lv 4 Leave Optimizer",
+      earnedLeave: 14,
+      earnedLeaveMax: 40,
+      clCount: 6,
+      slCount: 6,
+      compOffCount: 2,
+      compOffExpiryDays: 45,
+      vibes: "Mountains",
+      budgetLevel: 2,
+      prioritizeROI: true,
+      prioritizeLowestCost: false,
+      currentTripLocation: "Coimbatore",
+      isTripLocked: false,
+      activeHolidaySwaps: "{}",
+      passwordHash: null,
+      passwordSalt: null,
+    };
+
+    // 3. Keep only fields that are explicitly provided (not null or undefined)
+    const incomingClean = Object.fromEntries(
+      Object.entries(employee).filter(([_, val]) => val !== undefined && val !== null)
+    );
+
+    // 4. Merge: Default values < Existing DB records < Incoming client changes
+    const merged: DbEmployee = {
+      ...defaultTemplate,
+      ...existing,
+      ...incomingClean,
+      email: normEmail, // strictly enforce normalized email
+    };
+
     if (!dbStatus.isConfigured) {
       console.log(`[ZenQuery Fallback] Local server cache upsert: ${email}`);
       sandboxCache[normEmail] = {
-        ...employee,
+        ...merged,
         updatedAt: new Date(),
       };
       return sandboxCache[normEmail];
@@ -76,49 +117,51 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
     const insertedRows = await db
       .insert(employees)
       .values({
-        email: normEmail,
-        name: employee.name,
-        role: employee.role,
-        avatar: employee.avatar,
-        location: employee.location,
-        level: employee.level,
-        earnedLeave: employee.earnedLeave,
-        earnedLeaveMax: employee.earnedLeaveMax,
-        clCount: employee.clCount,
-        slCount: employee.slCount,
-        compOffCount: employee.compOffCount,
-        compOffExpiryDays: employee.compOffExpiryDays,
-        vibes: employee.vibes,
-        budgetLevel: employee.budgetLevel,
-        prioritizeROI: employee.prioritizeROI,
-        prioritizeLowestCost: employee.prioritizeLowestCost,
-        currentTripLocation: employee.currentTripLocation,
-        isTripLocked: employee.isTripLocked,
-        activeHolidaySwaps: employee.activeHolidaySwaps,
-        passwordHash: employee.passwordHash || null,
-        passwordSalt: employee.passwordSalt || null,
+        email: merged.email,
+        name: merged.name,
+        role: merged.role,
+        avatar: merged.avatar,
+        location: merged.location,
+        level: merged.level,
+        earnedLeave: merged.earnedLeave,
+        earnedLeaveMax: merged.earnedLeaveMax,
+        clCount: merged.clCount,
+        slCount: merged.slCount,
+        compOffCount: merged.compOffCount,
+        compOffExpiryDays: merged.compOffExpiryDays,
+        vibes: merged.vibes,
+        budgetLevel: merged.budgetLevel,
+        prioritizeROI: merged.prioritizeROI,
+        prioritizeLowestCost: merged.prioritizeLowestCost,
+        currentTripLocation: merged.currentTripLocation,
+        isTripLocked: merged.isTripLocked,
+        activeHolidaySwaps: merged.activeHolidaySwaps,
+        passwordHash: merged.passwordHash,
+        passwordSalt: merged.passwordSalt,
       })
       .onConflictDoUpdate({
         target: employees.email,
         set: {
-          name: employee.name,
-          role: employee.role,
-          avatar: employee.avatar,
-          location: employee.location,
-          level: employee.level,
-          earnedLeave: employee.earnedLeave,
-          earnedLeaveMax: employee.earnedLeaveMax,
-          clCount: employee.clCount,
-          slCount: employee.slCount,
-          compOffCount: employee.compOffCount,
-          compOffExpiryDays: employee.compOffExpiryDays,
-          vibes: employee.vibes,
-          budgetLevel: employee.budgetLevel,
-          prioritizeROI: employee.prioritizeROI,
-          prioritizeLowestCost: employee.prioritizeLowestCost,
-          currentTripLocation: employee.currentTripLocation,
-          isTripLocked: employee.isTripLocked,
-          activeHolidaySwaps: employee.activeHolidaySwaps,
+          name: merged.name,
+          role: merged.role,
+          avatar: merged.avatar,
+          location: merged.location,
+          level: merged.level,
+          earnedLeave: merged.earnedLeave,
+          earnedLeaveMax: merged.earnedLeaveMax,
+          clCount: merged.clCount,
+          slCount: merged.slCount,
+          compOffCount: merged.compOffCount,
+          compOffExpiryDays: merged.compOffExpiryDays,
+          vibes: merged.vibes,
+          budgetLevel: merged.budgetLevel,
+          prioritizeROI: merged.prioritizeROI,
+          prioritizeLowestCost: merged.prioritizeLowestCost,
+          currentTripLocation: merged.currentTripLocation,
+          isTripLocked: merged.isTripLocked,
+          activeHolidaySwaps: merged.activeHolidaySwaps,
+          passwordHash: merged.passwordHash,
+          passwordSalt: merged.passwordSalt,
           updatedAt: new Date(),
         },
       })
@@ -126,7 +169,7 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
 
     return insertedRows[0] as DbEmployee;
   } catch (error) {
-    console.error(`[ZenQuery Exception] Failed to persist employee: ${employee.name}`, error);
+    console.error(`[ZenQuery Exception] Failed to persist employee: ${employee.name || email}`, error);
     throw new Error("Database persistence failed. Verify database connectivity and user privileges.", { cause: error });
   }
 }
