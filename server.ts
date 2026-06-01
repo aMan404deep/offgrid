@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { ARRISE_LEAVE_POLICY_TEXT } from "./src/data/leavePolicy.js";
 import { getEmployeeByEmail, upsertEmployee } from "./src/db/repo.ts";
 import crypto from "crypto";
+import { getTransitDetails } from "./src/utils/transit.ts";
 
 function hashPassword(password: string): { salt: string; hash: string } {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -84,18 +85,52 @@ function getFallbackPolicyChat(message: string) {
 }
 
 function getFallbackItineraryMatrix(resolvedDestination: string, vibe: string, isLuxury: boolean, budgetLevel: number) {
+  const transitInfo = getTransitDetails("Delhi", resolvedDestination || "Manali", budgetLevel);
   let defaultDays = [];
+
   if (budgetLevel === 1) {
     // Budget / economy fallback
+    const firstActivity = transitInfo.isDirect ? {
+      id: "1a",
+      time: "08:00 AM",
+      title: `Direct Flight Arrival`,
+      description: `Arrive at the ${resolvedDestination} terminal terminal. Pre-paid bus transfer towards retreat.`,
+      category: "Morning",
+      icon: "flight_land"
+    } : {
+      id: "1a",
+      time: "08:00 AM",
+      title: `Flight to Hub: ${transitInfo.hubName}`,
+      description: `Fly in to ${transitInfo.hubName} Hub airport. Layover preparation for mountaineering ground vehicle transfer.`,
+      category: "Morning",
+      icon: "flight_land"
+    };
+
+    const secondActivity = transitInfo.isDirect ? {
+      id: "1b",
+      time: "01:00 PM",
+      title: "Cozy Backpacker Hostel",
+      description: "Settle into a neat, shared bunk cabin or budget guesthouse with community self-cook kitchens.",
+      category: "Afternoon",
+      icon: "hotel"
+    } : {
+      id: "1b",
+      time: "01:15 PM",
+      title: `Scenic Overland Coach Transfer`,
+      description: `Board the regional mountain link travelling through gorgeous pine loops and cascading water falls.`,
+      category: "Afternoon",
+      icon: "hotel"
+    };
+
     defaultDays = [
       {
         dayNumber: 1,
         dateStr: "Day 1",
-        title: "Thrifty Depot Transit & Settle",
+        title: "The Multi-Modal Transit",
         activities: [
-          { id: "1a", time: "08:00 AM", title: `Arrive in ${resolvedDestination}`, description: "Local bus transfer arranged from the regional depot with gorgeous valley views.", category: "Morning", icon: "flight_land" },
-          { id: "1b", time: "01:00 PM", title: "Cozy Backpacker Hostel", description: "Settle into a neat, shared bunk cabin or budget guesthouse with community self-cook kitchens.", category: "Afternoon", icon: "hotel" },
-          { id: "1c", time: "06:30 PM", title: "Street Food Crawl", description: "Sample steaming hot parottas, momos, and hot spiced cardamom chai at nominal rates.", category: "Evening", icon: "restaurant" }
+          firstActivity,
+          secondActivity,
+          { id: "1c", time: "06:30 PM", title: "Street Food Crawl", description: `Sample steaming hot parottas, local dumplings, and spiced cardamom tea near your budget stay at ${resolvedDestination}.`, category: "Evening", icon: "restaurant" }
         ]
       },
       {
@@ -111,14 +146,46 @@ function getFallbackItineraryMatrix(resolvedDestination: string, vibe: string, i
     ];
   } else if (budgetLevel === 3) {
     // Luxury / five-star fallback
+    const firstActivity = transitInfo.isDirect ? {
+      id: "1a",
+      time: "08:00 AM",
+      title: `First-Class Airport Welcome`,
+      description: `VIP runway assistance to a private chauffeur-driven luxury SUV towards ${resolvedDestination}.`,
+      category: "Morning",
+      icon: "flight_land"
+    } : {
+      id: "1a",
+      time: "08:00 AM",
+      title: `First-Class Air Flight to ${transitInfo.hubName}`,
+      description: `Elite air transition connecting to regional gate hub ${transitInfo.hubName}. Private butler lounge baggage clearance.`,
+      category: "Morning",
+      icon: "flight_land"
+    };
+
+    const secondActivity = transitInfo.isDirect ? {
+      id: "1b",
+      time: "01:00 PM",
+      title: "Helipool Villa Settle",
+      description: "Check into your high-end woodland villa equipped with a heated infinity-edge plunge pool and sensory aroma steam baths.",
+      category: "Afternoon",
+      icon: "hotel"
+    } : {
+      id: "1b",
+      time: "12:45 PM",
+      title: `Luxury Private Cruiser Transfer`,
+      description: `Chauffeur transfer up the valley toward ${resolvedDestination} inside an advanced four-wheel drive cruiser stocked with organic health juices.`,
+      category: "Afternoon",
+      icon: "hotel"
+    };
+
     defaultDays = [
       {
         dayNumber: 1,
         dateStr: "Day 1",
         title: "Elite Runway Escort & Private Villa",
         activities: [
-          { id: "1a", time: "08:00 AM", title: `First-Class Airport Welcome`, description: `VIP runway assistance to a private chauffeur-driven luxury SUV stocked with cold towels and gourmet snacks towards ${resolvedDestination}.`, category: "Morning", icon: "flight_land" },
-          { id: "1b", time: "01:00 PM", title: "Helipool Villa Settle", description: "Check into your high-end woodland villa equipped with a heated infinity-edge plunge pool and sensory aroma steam baths.", category: "Afternoon", icon: "hotel" },
+          firstActivity,
+          secondActivity,
           { id: "1c", time: "06:30 PM", title: "Sommelier Dusk Reception", description: "Exclusive champagne toast curated by the cellarmaster overlooking sunset clouds.", category: "Evening", icon: "restaurant" }
         ]
       },
@@ -128,22 +195,54 @@ function getFallbackItineraryMatrix(resolvedDestination: string, vibe: string, i
         title: "Helicopter Peaks & Glass Observatory Dine",
         activities: [
           { id: "2a", time: "08:30 AM", title: "Artisanal Butler Room Service", description: "Fresh morning single-origin estate coffee accompanied by signature direct-from-oven pastries.", category: "Morning", icon: "local_cafe" },
-          { id: "2b", time: "02:00 PM", title: "Private helicopter Sightseeing", description: "Exhilarating helicopter flight tour soaring above jagging snowy summits with landing rights for panoramic peak-side high teas.", category: "Afternoon", icon: "landscape" },
+          { id: "2b", time: "02:00 PM", title: "Private helicopter Sightseeing", description: `Exhilarating helicopter flight tour soaring above jagging snowy summits near ${resolvedDestination} with landing rights for panoramic peak-side high teas.`, category: "Afternoon", icon: "landscape" },
           { id: "2c", time: "06:30 PM", title: "Glass Roof degustation Menu", description: "Multi-course premium local fusion dinner served under architectural glass dome with individual live violin backdrops.", category: "Evening", icon: "restaurant" }
         ]
       }
     ];
   } else {
     // Mid-Range standard fallback
+    const firstActivity = transitInfo.isDirect ? {
+      id: "1a",
+      time: "08:00 AM",
+      title: `Pre-paid Transit Settle`,
+      description: `Comfortable airport sedan pickup arranged with direct transfer to ${resolvedDestination}.`,
+      category: "Morning",
+      icon: "flight_land"
+    } : {
+      id: "1a",
+      time: "08:30 AM",
+      title: `Air Flight connection: Hub ${transitInfo.hubName}`,
+      description: `Smooth flight transition landing at regional gate hub ${transitInfo.hubName}. Transition coordinate assistance on board.`,
+      category: "Morning",
+      icon: "flight_land"
+    };
+
+    const secondActivity = transitInfo.isDirect ? {
+      id: "1b",
+      time: "01:00 PM",
+      title: "Warm Forest Cottage",
+      description: "Check-in to your comfortable individual timber cottage with direct garden layouts.",
+      category: "Afternoon",
+      icon: "hotel"
+    } : {
+      id: "1b",
+      time: "01:15 PM",
+      title: `Winding Valley Highway Sedan Ride`,
+      description: `Comfortable private sedan ground transfer climbing majestic pine-scented hills, forest vistas, and pristine riversides.`,
+      category: "Afternoon",
+      icon: "hotel"
+    };
+
     defaultDays = [
       {
         dayNumber: 1,
         dateStr: "Day 1",
         title: "Cab Pickup & Timber Cottage Layout",
         activities: [
-          { id: "1a", time: "08:00 AM", title: `Pre-paid Transit Settle`, description: `Comfortable airport sedan pickup arranged with direct transfer to ${resolvedDestination}.`, category: "Morning", icon: "flight_land" },
-          { id: "1b", time: "01:00 PM", title: "Warm Forest Cottage", description: "Check-in to your comfortable individual timber cottage with direct garden layouts.", category: "Afternoon", icon: "hotel" },
-          { id: "1c", time: "06:30 PM", title: "Scenic Ridge Sunset", description: "Savor spiced hot tea at a scenic viewpoint cafe while watching the sunset colors.", category: "Evening", icon: "restaurant" }
+          firstActivity,
+          secondActivity,
+          { id: "1c", time: "06:30 PM", title: "Scenic Ridge Sunset", description: `Savor spiced hot tea at a scenic viewpoint cabin in ${resolvedDestination} while watching the sunset colors.`, category: "Evening", icon: "restaurant" }
         ]
       },
       {
@@ -158,7 +257,8 @@ function getFallbackItineraryMatrix(resolvedDestination: string, vibe: string, i
       }
     ];
   }
-  return { days: defaultDays, note: `Loaded dynamic ${isLuxury ? "luxury" : "standard"} matrix.` };
+
+  return { days: defaultDays, note: `Loaded segment-aware path matrix for ${resolvedDestination}.` };
 }
 
 // 1. Health check & credentials report

@@ -1,54 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
-import { Download, MapPin, Calendar, Compass, ShieldAlert, Sparkles, AlertCircle, DollarSign, Lock, Play, RefreshCw, Layers, GitCompare, ArrowRightLeft, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { Download, MapPin, Calendar, Compass, ShieldAlert, Sparkles, AlertCircle, DollarSign, Lock, Play, RefreshCw, Layers, GitCompare, ArrowRightLeft, ZoomIn, ZoomOut, RotateCcw, Plane, Car, Bus, Train, Info } from "lucide-react";
 import { LiveDealsCard } from "./LiveDealsCard";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
-
-// Geolocation helper mimicking real mapping positions of cities to dynamic canvas coords (viewBox 0 0 400 300)
-function getCoordsForName(name: string, isOrigin: boolean = false) {
-  const norm = (name || "").trim().toLowerCase();
-  let hash = 0;
-  for (let i = 0; i < norm.length; i++) {
-    hash += norm.charCodeAt(i) * (i + 1);
-  }
-  
-  if (isOrigin) {
-    if (norm.includes("noida") || norm.includes("delhi")) {
-      return { x: 100, y: 110, lat: "28.5355° N", lon: "77.3910° E" };
-    }
-    if (norm.includes("mumbai")) {
-      return { x: 80, y: 210, lat: "19.0760° N", lon: "72.8777° E" };
-    }
-    if (norm.includes("bangalore") || norm.includes("bengaluru")) {
-      return { x: 140, y: 250, lat: "12.9716° N", lon: "77.5946° E" };
-    }
-    // generic origin math
-    const x = 80 + (hash % 60);
-    const y = 100 + (hash % 100);
-    return { x, y, lat: `${(12 + (hash % 15)).toFixed(4)}° N`, lon: `${(72 + (hash % 10)).toFixed(4)}° E` };
-  } else {
-    if (norm.includes("manali")) {
-      return { x: 120, y: 40, lat: "32.2396° N", lon: "77.1887° E" };
-    }
-    if (norm.includes("ooty")) {
-      return { x: 130, y: 255, lat: "11.4102° N", lon: "76.6950° E" };
-    }
-    if (norm.includes("goa")) {
-      return { x: 90, y: 200, lat: "15.2993° N", lon: "74.1240° E" };
-    }
-    if (norm.includes("leh") || norm.includes("ladakh")) {
-      return { x: 130, y: 20, lat: "34.1526° N", lon: "77.5770° E" };
-    }
-    if (norm.includes("srinagar")) {
-      return { x: 100, y: 25, lat: "34.0837° N", lon: "74.7973° E" };
-    }
-    // generic destination math (offsetted to right-ish to construct beautiful curves across map)
-    const x = 160 + (hash % 150);
-    const y = 80 + (hash % 160);
-    return { x, y, lat: `${(8 + (hash % 24)).toFixed(4)}° N`, lon: `${(74 + (hash % 14)).toFixed(4)}° E` };
-  }
-}
+import { getCoordsForName, getTransitDetails } from "../utils/transit";
 
 // Helper to estimate budget & leave days for any destination deterministically based on its name hash
 function getDestinationStats(name: string, budgetLevel: number, prioritizeLowestCost: boolean) {
@@ -137,19 +93,89 @@ export const ItineraryView: React.FC = () => {
   // Autocomplete Focus Active field: 'main' | 'destA' | 'destB' | null
   const [activeSuggestionsField, setActiveSuggestionsField] = useState<"main" | "destA" | "destB" | null>(null);
 
-  // Filter helper matching queries to destinations list
-  const getFilteredSuggestions = (query: string) => {
-    const trimmed = (query || "").trim().toLowerCase();
+  const [mainSuggestions, setMainSuggestions] = useState<any[]>([]);
+  const [destASuggestions, setDestASuggestions] = useState<any[]>([]);
+  const [destBSuggestions, setDestBSuggestions] = useState<any[]>([]);
+
+  // Open-Meteo Geocoding search engine for instant GPS searches across the globe
+  const fetchPredictions = async (
+    input: string,
+    setResults: React.Dispatch<React.SetStateAction<any[]>>
+  ) => {
+    const trimmed = (input || "").trim();
     if (!trimmed) {
-      // Suggest top default locations
-      return POPULAR_DESTINATIONS.slice(0, 5);
+      setResults(POPULAR_DESTINATIONS.slice(0, 5).map(d => ({ ...d, isCustom: false })));
+      return;
     }
+
+    try {
+      const response = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(trimmed)}&count=5&language=en&format=json`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data.results) && data.results.length > 0) {
+          const mapped = data.results.map((item: any) => {
+            const name = item.name;
+            const region = item.admin1 || "";
+            const country = item.country || "";
+            const stats = getDestinationStats(name, preferences.budgetLevel, preferences.prioritizeLowestCost);
+            const costEstimate = `₹${stats.total.toLocaleString()} avg`;
+
+            return {
+              name,
+              category: "City",
+              region: region,
+              country: country,
+              desc: `${region ? region + ", " : ""}${country}`,
+              costEstimate,
+              latitude: item.latitude,
+              longitude: item.longitude,
+              isCustom: true
+            };
+          });
+          setResults(mapped);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Open-Meteo Geocoding failed, falling back to local list.", err);
+    }
+
+    // Direct local fallback safely if API is rate-limited or offline
+    setResults(getLocalFiltered(trimmed));
+  };
+
+  const getLocalFiltered = (query: string) => {
+    const trimmed = query.toLowerCase();
     return POPULAR_DESTINATIONS.filter(item => 
       item.name.toLowerCase().includes(trimmed) || 
       item.region.toLowerCase().includes(trimmed) ||
       item.category.toLowerCase().includes(trimmed)
-    ).slice(0, 5);
+    ).slice(0, 5).map(d => ({ ...d, isCustom: false }));
   };
+
+  // Run reactive triggers to query predictions when inputs type with safety debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPredictions(destInput, setMainSuggestions);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [destInput]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPredictions(destA, setDestASuggestions);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [destA]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchPredictions(destB, setDestBSuggestions);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [destB]);
 
   // Interactive Map State variables
   const [zoom, setZoom] = useState(1);
@@ -293,9 +319,9 @@ export const ItineraryView: React.FC = () => {
                   <span className="text-[#944a00] bg-[#ffdcc5] px-1.5 py-0.5 rounded-lg font-bold">GPS SUGGEST</span>
                 </div>
                 <div className="max-h-60 overflow-y-auto">
-                  {getFilteredSuggestions(destInput).map((item) => (
+                  {mainSuggestions.map((item, idx) => (
                     <button
-                      key={`main-suggest-${item.name}`}
+                      key={`main-suggest-${item.name}-${idx}`}
                       type="button"
                       onMouseDown={() => {
                         setDestInput(item.name);
@@ -313,7 +339,7 @@ export const ItineraryView: React.FC = () => {
                             <span>{item.name}</span>
                             <span className="text-[9px] font-normal text-stone-400 font-mono">({item.category})</span>
                           </p>
-                          <p className="text-[9px] text-stone-500 mt-1 truncate leading-none">{item.region}, {item.country}</p>
+                          <p className="text-[9px] text-stone-500 mt-1 truncate leading-none">{item.region}{item.country ? `, ${item.country}` : ""}</p>
                         </div>
                       </div>
                       <span className="text-[9px] font-mono text-stone-400 shrink-0 select-none bg-stone-50 border border-stone-200/50 px-1.5 py-0.5 rounded ml-2 font-bold">
@@ -321,7 +347,7 @@ export const ItineraryView: React.FC = () => {
                       </span>
                     </button>
                   ))}
-                  {getFilteredSuggestions(destInput).length === 0 && (
+                  {mainSuggestions.length === 0 && (
                     <div className="p-4 text-center text-[10px] text-stone-400 font-medium font-sans">
                       No coordinates match "{destInput}".
                     </div>
@@ -455,9 +481,9 @@ export const ItineraryView: React.FC = () => {
                                 GPS SUGGESTIONS
                               </div>
                               <div className="max-h-48 overflow-y-auto">
-                                {getFilteredSuggestions(destA).map((item) => (
+                                {destASuggestions.map((item, idx) => (
                                   <button
-                                    key={`desta-suggest-${item.name}`}
+                                    key={`desta-suggest-${item.name}-${idx}`}
                                     type="button"
                                     onMouseDown={() => {
                                       setDestA(item.name);
@@ -469,7 +495,7 @@ export const ItineraryView: React.FC = () => {
                                       <p className="text-[10px] font-bold text-[#1c1b1b] leading-none font-sans">
                                         {item.name} <span className="text-[8px] font-normal text-[#897365] font-mono">({item.category})</span>
                                       </p>
-                                      <p className="text-[8px] text-[#897365] mt-0.5 truncate leading-none">{item.region}</p>
+                                      <p className="text-[8px] text-[#897365] mt-0.5 truncate leading-none">{item.region}{item.country ? `, ${item.country}` : ""}</p>
                                     </div>
                                     <span className="text-[8px] font-mono text-[#897365] shrink-0 font-bold bg-[#f6f3f2] px-1 py-0.5 rounded leading-none">
                                       {item.costEstimate}
@@ -595,9 +621,9 @@ export const ItineraryView: React.FC = () => {
                                 GPS SUGGESTIONS
                               </div>
                               <div className="max-h-48 overflow-y-auto">
-                                {getFilteredSuggestions(destB).map((item) => (
+                                {destBSuggestions.map((item, idx) => (
                                   <button
-                                    key={`destb-suggest-${item.name}`}
+                                    key={`destb-suggest-${item.name}-${idx}`}
                                     type="button"
                                     onMouseDown={() => {
                                       setDestB(item.name);
@@ -609,7 +635,7 @@ export const ItineraryView: React.FC = () => {
                                       <p className="text-[10px] font-bold text-[#1c1b1b] leading-none font-sans">
                                         {item.name} <span className="text-[8px] font-normal text-[#897365] font-mono">({item.category})</span>
                                       </p>
-                                      <p className="text-[8px] text-[#897365] mt-0.5 truncate leading-none">{item.region}</p>
+                                      <p className="text-[8px] text-[#897365] mt-0.5 truncate leading-none">{item.region}{item.country ? `, ${item.country}` : ""}</p>
                                     </div>
                                     <span className="text-[8px] font-mono text-[#897365] shrink-0 font-bold bg-[#f6f3f2] px-1 py-0.5 rounded leading-none">
                                       {item.costEstimate}
@@ -856,6 +882,110 @@ export const ItineraryView: React.FC = () => {
             </div>
           </div>
 
+          {/* Smart Multi-Segment Connection Planner */}
+          {(() => {
+            const transitInfo = getTransitDetails(user.location, currentTripLocation, preferences.budgetLevel);
+            const totalDurationStr = transitInfo.isDirect ? "3h 00m Total" : "8h 30m Total";
+            const totalCostStr = preferences.budgetLevel === 3 ? "₹24,500 est." : preferences.budgetLevel === 1 ? "₹5,800 est." : "₹11,000 est.";
+            return (
+              <div id="smart-transit-planner-card" className="bg-white border border-[#eae7e7] rounded-2xl shadow-sm p-6 space-y-4 text-left">
+                <div className="flex items-center justify-between border-b border-[#eae7e7]/60 pb-3">
+                  <div>
+                    <span className="text-[10px] font-mono text-[#897365] font-bold uppercase tracking-wider block mb-0.5">Route Guide</span>
+                    <h4 className="text-sm font-bold text-[#1c1b1b] flex items-center gap-1.5">
+                      <Layers className="text-[#944a00] w-4 h-4 shrink-0" />
+                      <span>{transitInfo.isDirect ? "Direct Journey Route" : "Multi-Segment Connection"}</span>
+                    </h4>
+                  </div>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    transitInfo.isDirect
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
+                      : "bg-[#ffdcc5] text-[#944a00] border border-[#ffbf00]/30"
+                  }`}>
+                    {transitInfo.isDirect ? "DIRECT ROUTE" : "CONNECTED HUB"}
+                  </span>
+                </div>
+
+                {/* Duration and total estimated transit pricing */}
+                <div className="grid grid-cols-2 gap-3.5 pb-1">
+                  <div className="bg-[#f6f3f2] p-2.5 rounded-xl border border-[#eae7e7]/60">
+                    <span className="text-[9px] font-mono text-[#897365] block font-bold">EST. JOURNEY TIME</span>
+                    <span className="text-xs font-bold text-stone-900 font-mono">{totalDurationStr}</span>
+                  </div>
+                  <div className="bg-[#f6f3f2] p-2.5 rounded-xl border border-[#eae7e7]/60">
+                    <span className="text-[9px] font-mono text-[#897365] block font-bold">TOTAL COMMUTE COST</span>
+                    <span className="text-xs font-bold text-[#944a00] font-mono">{totalCostStr}</span>
+                  </div>
+                </div>
+
+                {/* Journey Segment Timeline */}
+                <div className="space-y-4 pt-1">
+                  {transitInfo.segments.map((segment, idx) => {
+                    const isLast = idx === transitInfo.segments.length - 1;
+                    return (
+                      <div key={`transit-seg-${idx}`} className="flex gap-3 relative">
+                        {/* Connecting Line */}
+                        {!isLast && (
+                          <div className="absolute left-[13px] top-6 bottom-[-20px] w-0.5 border-l-2 border-dashed border-[#eae7e7]" />
+                        )}
+                        
+                        {/* Segment Icon */}
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border shadow-xs ${
+                          segment.type === "flight"
+                            ? "bg-blue-50 border-blue-200 text-blue-600"
+                            : segment.type === "drive"
+                            ? "bg-amber-50 border-amber-200 text-amber-600"
+                            : segment.type === "bus"
+                            ? "bg-teal-50 border-teal-200 text-teal-600"
+                            : "bg-indigo-50 border-indigo-200 text-indigo-600"
+                        }`}>
+                          {segment.type === "flight" && <Plane className="w-3.5 h-3.5" />}
+                          {segment.type === "drive" && <Car className="w-3.5 h-3.5" />}
+                          {segment.type === "bus" && <Bus className="w-3.5 h-3.5" />}
+                          {segment.type === "train" && <Train className="w-3.5 h-3.5" />}
+                        </div>
+
+                        {/* Segment Meta */}
+                        <div className="flex-1 min-w-0 text-left font-sans">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono font-bold text-stone-400 uppercase tracking-wider">
+                              Segment {idx + 1} &bull; {segment.type.toUpperCase()}
+                            </span>
+                            <span className="text-xs font-bold text-stone-800 font-mono">{segment.duration}</span>
+                          </div>
+                          <p className="text-xs font-bold text-stone-900 mt-0.5">
+                            {segment.from} &rarr; {segment.to}
+                          </p>
+                          <p className="text-[11px] text-stone-650 mt-1 leading-normal text-stone-600">
+                            {segment.description}
+                          </p>
+                          {segment.costEstimate && (
+                            <p className="text-[9px] font-mono text-[#944a00] font-bold mt-1">
+                              Fare share: {segment.costEstimate}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Indirect Helper Banner */}
+                {!transitInfo.isDirect && (
+                  <div className="p-3 bg-[#ffdcc5]/20 rounded-xl border border-[#ffbf00]/20 text-[10px] text-stone-850 flex items-start gap-2 text-left">
+                    <Info className="w-3.5 h-3.5 text-[#944a00] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-stone-900">Transfer advice for {transitInfo.hubName}</p>
+                      <p className="leading-normal text-[9.5px] text-stone-600 mt-0.5">
+                        No direct flight exists for {currentTripLocation}. Transit connects securely at {transitInfo.hubName}. We recommend arranging ground pickup in advance.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Mini Destination Map widget */}
           <div className="bg-white border border-[#eae7e7] rounded-2xl shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between font-sans">
@@ -1004,11 +1134,26 @@ export const ItineraryView: React.FC = () => {
                   {(() => {
                     const coordsOrigin = getCoordsForName(user.location, true);
                     const coordsDest = getCoordsForName(currentTripLocation, false);
+                    const transitInfo = getTransitDetails(user.location, currentTripLocation, preferences.budgetLevel);
                     
-                    // Arc computation path
-                    const ctrlX = (coordsOrigin.x + coordsDest.x) / 2 + 35;
-                    const ctrlY = (coordsOrigin.y + coordsDest.y) / 2 - 50;
-                    const curvePath = `M ${coordsOrigin.x} ${coordsOrigin.y} Q ${ctrlX} ${ctrlY} ${coordsDest.x} ${coordsDest.y}`;
+                    let curvePath1 = "";
+                    let curvePath2 = "";
+                    
+                    if (transitInfo.isDirect) {
+                      const ctrlX = (coordsOrigin.x + coordsDest.x) / 2 + 35;
+                      const ctrlY = (coordsOrigin.y + coordsDest.y) / 2 - 50;
+                      curvePath1 = `M ${coordsOrigin.x} ${coordsOrigin.y} Q ${ctrlX} ${ctrlY} ${coordsDest.x} ${coordsDest.y}`;
+                    } else {
+                      // Origin to Hub
+                      const ctrlX1 = (coordsOrigin.x + transitInfo.hubCoords.x) / 2 + 10;
+                      const ctrlY1 = (coordsOrigin.y + transitInfo.hubCoords.y) / 2 - 20;
+                      curvePath1 = `M ${coordsOrigin.x} ${coordsOrigin.y} Q ${ctrlX1} ${ctrlY1} ${transitInfo.hubCoords.x} ${transitInfo.hubCoords.y}`;
+
+                      // Hub to Destination
+                      const ctrlX2 = (transitInfo.hubCoords.x + coordsDest.x) / 2 - 5;
+                      const ctrlY2 = (transitInfo.hubCoords.y + coordsDest.y) / 2 + 10;
+                      curvePath2 = `M ${transitInfo.hubCoords.x} ${transitInfo.hubCoords.y} Q ${ctrlX2} ${ctrlY2} ${coordsDest.x} ${coordsDest.y}`;
+                    }
 
                     // Daily checkpoint nodes nearby destination with offset spreading angles
                     const dayNodes = itinerary.map((day, idx) => {
@@ -1025,13 +1170,25 @@ export const ItineraryView: React.FC = () => {
                       <g>
                         {/* Connecting trajectory trail flight arc */}
                         <path
-                          d={curvePath}
+                          d={curvePath1}
                           fill="none"
                           stroke="#ffbf00"
                           strokeWidth="2"
                           strokeOpacity="0.85"
                           strokeDasharray="4 4"
                         />
+
+                        {/* Connecting overland road/train arc */}
+                        {!transitInfo.isDirect && (
+                          <path
+                            d={curvePath2}
+                            fill="none"
+                            stroke="#944a00"
+                            strokeWidth="1.8"
+                            strokeOpacity="0.9"
+                            strokeDasharray="1 1.5"
+                          />
+                        )}
 
                         {/* Origin Node Anchor */}
                         <g 
@@ -1050,8 +1207,24 @@ export const ItineraryView: React.FC = () => {
                           </text>
                         </g>
 
-                        {/* Connection flight arc midpoint pointer marker */}
-                        <circle cx={ctrlX} cy={ctrlY} r="2" fill="#ffdcc5" fillOpacity="0.4" />
+                        {/* Transit Hub Node Anchor */}
+                        {!transitInfo.isDirect && (
+                          <g 
+                            className="cursor-pointer"
+                            onMouseEnter={() => setHoveredNode({
+                              name: `Transit Hub: ${transitInfo.hubName}`,
+                              info: `Overland departure point to destination ${currentTripLocation}`,
+                              type: 'checkpoint'
+                            })}
+                            onMouseLeave={() => setHoveredNode(null)}
+                          >
+                            <circle cx={transitInfo.hubCoords.x} cy={transitInfo.hubCoords.y} r="10" fill="#00b05c" fillOpacity="0.15" />
+                            <circle cx={transitInfo.hubCoords.x} cy={transitInfo.hubCoords.y} r="4.5" fill="#00b05c" />
+                            <text x={transitInfo.hubCoords.x + 8} y={transitInfo.hubCoords.y - 4} fill="#00b05c" fontSize="7" fontFamily="monospace" fontWeight="bold">
+                              {transitInfo.hubName.replace(/\(.*?\)/g, "").trim().split(" ")[0].toUpperCase()} HUB
+                            </text>
+                          </g>
+                        )}
 
                         {/* Destination Node Anchor */}
                         <g 

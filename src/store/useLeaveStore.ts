@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { UserProfile, LeaveBalances, TravelPreferences, ItineraryDay, BudgetForecast, Achievement, ChatMessage, OfficeLocation, LiveDealsData } from "../types";
+import { UserProfile, LeaveBalances, TravelPreferences, ItineraryDay, ItineraryItem, BudgetForecast, Achievement, ChatMessage, OfficeLocation, LiveDealsData } from "../types";
+import { getTransitDetails } from "../utils/transit";
 
 interface LeaveState {
   isAuthenticated: boolean;
@@ -78,17 +79,53 @@ const INITIAL_ACHIEVEMENTS: Achievement[] = [
 ];
 
 function getDynamicFallbackItinerary(destination: string, budgetLevel: number): ItineraryDay[] {
+  // Simple default origin if we don't have access to state
+  const origin = "Delhi"; 
+  const transitInfo = getTransitDetails(origin, destination || "Manali", budgetLevel);
+
   if (budgetLevel === 1) {
     // Economy/Budget Specific high-fidelity schedule
+    const firstActivity: ItineraryItem = transitInfo.isDirect ? {
+      id: "co-1",
+      time: "09:30 AM",
+      title: `Direct Flight Arrival`,
+      description: `Fly in to ${destination} terminal. Enjoy immediate entry to your wellness retreat compound.`,
+      category: "Morning",
+      icon: "bus"
+    } : {
+      id: "co-1",
+      time: "08:15 AM",
+      title: `Flight to ${transitInfo.hubName}`,
+      description: `Hop on the budget air flight to ${transitInfo.hubName}. Prepare for the beautiful scenic overland section.`,
+      category: "Morning",
+      icon: "bus"
+    };
+
+    const secondActivity: ItineraryItem = transitInfo.isDirect ? {
+      id: "co-2",
+      time: "02:00 PM",
+      title: "Cozy Backpacker Hostel Settle",
+      description: "Check into a tidy shared cabin space or local eco-guest rooms. Clean your gear.",
+      category: "Afternoon",
+      icon: "home"
+    } : {
+      id: "co-22",
+      time: "01:30 PM",
+      title: `Scenic Overland Transfer to ${destination}`,
+      description: `Board the standard regional transit link climbing through spectacular vertical canyon views.`,
+      category: "Afternoon",
+      icon: "home"
+    };
+
     return [
       {
         dayNumber: 1,
         dateStr: "Sat, Oct 10",
-        title: "The Thrifty Transit",
+        title: "The Multi-Modal Passage",
         activities: [
-          { id: "co-1", time: "09:30 AM", title: `Arrive in ${destination}`, description: "Local scenic bus transfer arranged from the regional depot with gorgeous valley views. Travel alongside local guides.", category: "Morning", icon: "bus" },
-          { id: "co-2", time: "02:00 PM", title: "Cozy Backpacker Hostel Settle", description: "Check into a neat, shared cabin bunk space or budget guesthouse with self-serving community kitchen.", category: "Afternoon", icon: "home" },
-          { id: "co-3", time: "06:00 PM", title: "Street Food Expedition", description: "Sample vibrant local stalls, savoring steaming hot parottas, momos, and spiced tea at nominal rates.", category: "Evening", icon: "sunset" }
+          firstActivity,
+          secondActivity,
+          { id: "co-3", time: "06:30 PM", title: "Street Food Expedition", description: `Unwind in ${destination}. Savor spiced hot tea, local dumplings, and traditional baked treats near your stay.`, category: "Evening", icon: "sunset" }
         ]
       },
       {
@@ -98,7 +135,7 @@ function getDynamicFallbackItinerary(destination: string, budgetLevel: number): 
         activities: [
           { id: "co-4", time: "08:30 AM", title: "Self-Brewed Local Coffee", description: "Fresh morning self-pack travel brew filter with handground local coffee beans.", category: "Morning", icon: "coffee" },
           { id: "co-5", time: "11:30 AM", title: "DIY Nature Ridge Hike", description: "Trek up free public pathways through emerald slopes with zero-cost entry; enjoy stunning raw vistas.", category: "Afternoon", icon: "mountain" },
-          { id: "co-6", time: "07:00 PM", title: "Hearth Room Social Gather", description: "Gather around an open log fire, swapping local lore and traveler tales with standard snacks.", category: "Evening", icon: "flame" }
+          { id: "co-7", time: "07:00 PM", title: "Hearth Room Social Gather", description: "Gather around an open log fire, swapping local lore and traveler tales with standard snacks.", category: "Evening", icon: "flame" }
         ]
       },
       {
@@ -106,23 +143,55 @@ function getDynamicFallbackItinerary(destination: string, budgetLevel: number): 
         dateStr: "Mon, Oct 12",
         title: "Pristine Stream Calm",
         activities: [
-          { id: "co-7", time: "09:00 AM", title: "River Bank Meditation", description: "Simple relaxation next to cool mountain currents for tranquil breathing and mindfulness.", category: "Morning", icon: "droplet" },
-          { id: "co-8", time: "03:00 PM", title: "Regional Herbal Forest Walk", description: "Self-guided walk through fragrant spices bushes and tea gardens under deep skies.", category: "Afternoon", icon: "smile" },
-          { id: "co-9", time: "08:00 PM", title: "Telescope Starspotting", description: "Unobstructed stellar sightings over the hills from a shared community deck.", category: "Evening", icon: "sparkles" }
+          { id: "co-8", time: "09:00 AM", title: "River Bank Meditation", description: "Simple relaxation next to cool mountain currents for tranquil breathing and mindfulness.", category: "Morning", icon: "droplet" },
+          { id: "co-9", time: "03:00 PM", title: "Regional Herbal Forest Walk", description: "Self-guided walk through fragrant spices bushes and tea gardens under deep skies.", category: "Afternoon", icon: "smile" },
+          { id: "co-10", time: "08:00 PM", title: "Telescope Starspotting", description: "Unobstructed stellar sightings over the hills from a shared community deck.", category: "Evening", icon: "sparkles" }
         ]
       }
     ];
   } else if (budgetLevel === 3) {
     // Luxury Specific high-fidelity schedule
+    const firstActivity: ItineraryItem = transitInfo.isDirect ? {
+      id: "co-1",
+      time: "09:30 AM",
+      title: `VIP Landing Escort`,
+      description: `Exclusive air landing at ${destination}. Direct first-class air lounge gate pickup to your private villa quarters.`,
+      category: "Morning",
+      icon: "plane"
+    } : {
+      id: "co-1",
+      time: "08:00 AM",
+      title: `Sky Connect: First-Class to ${transitInfo.hubName}`,
+      description: `Fly in ultra comfort to regional gate ${transitInfo.hubName}. Personalized arrival liaison processes baggage.`,
+      category: "Morning",
+      icon: "plane"
+    };
+
+    const secondActivity: ItineraryItem = transitInfo.isDirect ? {
+      id: "co-2",
+      time: "02:00 PM",
+      title: "Infinite Pool Villa Settle",
+      description: "Unwind inside your five-star woodland villa featuring scenic heated plunge baths and customized ambient therapy layouts.",
+      category: "Afternoon",
+      icon: "home"
+    } : {
+      id: "co-22",
+      time: "12:30 PM",
+      title: `Premium Private Escort to ${destination}`,
+      description: `Chauffeur transfer via private luxury high-wheel Cruiser equipped with gourmet refreshments and spectacular hairpin camera view anchors.`,
+      category: "Afternoon",
+      icon: "home"
+    };
+
     return [
       {
         dayNumber: 1,
         dateStr: "Sat, Oct 10",
-        title: "First Class Escort",
+        title: "The Regal Passage",
         activities: [
-          { id: "co-1", time: "09:30 AM", title: `First-Class Airport Welcome`, description: `VIP runway assistance to a private chauffeur-driven luxury SUV stocked with premium organic juices and cold towels towards ${destination}.`, category: "Morning", icon: "plane" },
-          { id: "co-2", time: "02:00 PM", title: "Infinite Pool Villa Settle", description: "Check into your private five-star premium forest villa equipped with a heated infinity-edge plunge pool and personalized ambient therapy setup.", category: "Afternoon", icon: "home" },
-          { id: "co-3", time: "06:00 PM", title: "Gourmet Sommelier Reception", description: "Private welcome champagne toast from the hotel master sommelier under terracotta glass skylights overviewing deep clouds.", category: "Evening", icon: "sunset" }
+          firstActivity,
+          secondActivity,
+          { id: "co-3", time: "06:30 PM", title: "Five-Star Sommelier Dusk Reception", description: `Champagne sunset toast overlooking the rolling mountain ridges of ${destination}.`, category: "Evening", icon: "sunset" }
         ]
       },
       {
@@ -148,15 +217,47 @@ function getDynamicFallbackItinerary(destination: string, budgetLevel: number): 
     ];
   } else {
     // Standard / Mid Range Cozy Retreat Schedule
+    const firstActivity: ItineraryItem = transitInfo.isDirect ? {
+      id: "co-1",
+      time: "09:30 AM",
+      title: `Arrival at ${destination}`,
+      description: "Direct flight landing followed by pre-arranged premium sedan terminal transport. Welcome coolers on board.",
+      category: "Morning",
+      icon: "plane"
+    } : {
+      id: "co-1",
+      time: "08:30 AM",
+      title: `Flight Connection to Regional Hub`,
+      description: `Arrive at ${transitInfo.hubName} Airport. Meet your personal coordinator for the beautiful drive segment up the mountains.`,
+      category: "Morning",
+      icon: "plane"
+    };
+
+    const secondActivity: ItineraryItem = transitInfo.isDirect ? {
+      id: "co-2",
+      time: "02:00 PM",
+      title: "Cottage Garden Check-In",
+      description: "Settle into your warm wood-and-stone forest cottage. Cozy up near the custom pine-wood patio.",
+      category: "Afternoon",
+      icon: "home"
+    } : {
+      id: "co-22",
+      time: "01:00 PM",
+      title: `Scenic Overland Drive to ${destination}`,
+      description: `Comfortable private pre-paid sedan transfer navigating the gorgeous pine forests, valleys, and cascading streams.`,
+      category: "Afternoon",
+      icon: "home"
+    };
+
     return [
       {
         dayNumber: 1,
         dateStr: "Sat, Oct 10",
-        title: "The Transit Loop",
+        title: "The Winding Journey",
         activities: [
-          { id: "co-1", time: "09:30 AM", title: `Arrive in ${destination}`, description: "Pre-paid cab pickup arranged at regional terminus. Fresh mock beverages served upon arrival.", category: "Morning", icon: "plane" },
-          { id: "co-2", time: "02:00 PM", title: "Gateway Cottage Settle-in", description: "Warm timber cottage check-in with pristine organic garden views. Unpack and breathe deeply.", category: "Afternoon", icon: "home" },
-          { id: "co-3", time: "06:00 PM", title: "Zen Dusk Orientation", description: "Walk around the private organic groves. Watch the sunset paint the ridge in terracotta tints.", category: "Evening", icon: "sunset" }
+          firstActivity,
+          secondActivity,
+          { id: "co-3", time: "06:00 PM", title: "Ridge Cafe Dusk Watching", description: `Unwind with freshly roasted regional coffee at a ridge sunset patio in ${destination}, watching deep clouds turn orange.`, category: "Evening", icon: "sunset" }
         ]
       },
       {
