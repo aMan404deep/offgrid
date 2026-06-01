@@ -13,14 +13,18 @@ export default defineConfig({
   schema: "./src/db/schema.ts",
   out: "./drizzle",
   dialect: "postgresql",
-  schemaFilter: ["public"],
-  dbCredentials: {
-    host: sqlHost,
-    user: user,
-    password: password,
-    database: sqlDbName,
-    port: port,
-    ssl: { rejectUnauthorized: false },
-  },
+  dbCredentials: process.env.DATABASE_URL
+    ? {
+        url: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        host: sqlHost,
+        user: user,
+        password: password,
+        database: sqlDbName,
+        port: port,
+        ssl: { rejectUnauthorized: false },
+      },
   verbose: true,
 });
