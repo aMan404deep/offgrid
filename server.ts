@@ -242,8 +242,8 @@ app.post("/api/policy-chat", async (req, res) => {
     return res.json({ text: replyText, sources });
   } catch (error: any) {
     console.error("[ZenPlan Server] Gemini API policy chat error:", error);
-    if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE") {
-      console.log("[ZenPlan] Returning fallback for chatbot due to 503 error.");
+    if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
+      console.log("[ZenPlan] Returning fallback for chatbot due to API availability or quota error.");
       return res.json({ text: getFallbackPolicyChat(message), sources: ["Section 4: Arrise Leave Policy.md"] });
     }
     return res.status(500).json({
@@ -406,12 +406,102 @@ app.post("/api/generate-itinerary", async (req, res) => {
     }
   } catch (error: any) {
     console.error("[ZenPlan Server] Gemini Travel Itinerary Generator Error:", error);
-    if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE") {
-      console.log("[ZenPlan] Returning fallback for iterator due to 503 error.");
+    if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
+      console.log("[ZenPlan] Returning fallback for iterator due to API availability or quota error.");
       return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
     }
     return res.status(500).json({
       error: "Error generating travel schedule dynamically.",
+      details: error.message
+    });
+  }
+});
+
+// 4. Get Search-Grounded Live Deals (Flights, Hotels, Offers)
+app.post("/api/live-deals", async (req, res) => {
+  const { destination, origin, dates = "upcoming dates", budgetLevel = 2 } = req.body;
+  const resolvedDestination = destination || "Goa";
+  const resolvedOrigin = origin || "Delhi";
+
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    console.log("[ZenPlan] Sandbox fallback logic triggered for live deals.");
+    // Fallback Mock Deals
+    return res.json({
+      flights: [
+        { title: `Budget Flight to ${resolvedDestination}`, provider: "MakeMyTrip Sandbox", price: "₹4,500", url: "https://www.makemytrip.com/flights/", rating: "4/5" },
+        { title: `Direct Flight from ${resolvedOrigin}`, provider: "IndiGo Sandbox", price: "₹5,200", url: "https://www.goindigo.in/", rating: "4.5/5" }
+      ],
+      hotels: [
+        { title: `Premium Stay in ${resolvedDestination}`, provider: "Booking.com Sandbox", price: "₹2,500/night", url: "https://www.booking.com/", rating: "4.8/5" },
+        { title: `Cozy Hostel`, provider: "Agoda Sandbox", price: "₹800/night", url: "https://www.agoda.com/", rating: "4.2/5" }
+      ],
+      offers: [
+        { title: "Flat 10% Off on Flights", provider: "Cleartrip", code: "CTFLY10", url: "https://www.cleartrip.com/" },
+        { title: "Bank Credit Card Discount 15%", provider: "Yatra", code: "YATRA15", url: "https://www.yatra.com/" }
+      ]
+    });
+  }
+
+  try {
+    const budgetTierText = budgetLevel === 3 ? "Luxury / Elite five-star experience" : budgetLevel === 1 ? "Budget / Economy experience" : "Standard / Mid-Range experience";
+    
+    // We cannot reliably force complex JSON schema with googleSearch grounding enabled in all SDK versions,
+    // so we prompt for strict JSON and manually parse it, OR we use function calling. Let's try responseSchema with search grounding.
+    // However, googleSearch grounding might conflict with JSON schema directly. Let's ask Gemini to just return JSON.
+    const prompt = `You are a Live Travel API. Find current, real-world deals for flights and hotels traveling from ${resolvedOrigin} to ${resolvedDestination} for ${dates} catering to a ${budgetTierText}.
+Search for legitimate travel websites (MakeMyTrip, Booking.com, Agoda, Skyscanner, Kayak, etc.).
+Also find general travel coupon codes that are currently active in India (like MMTFLY, GOIBIBO etc).
+Find the current upcoming weather and a brief safety tip for ${resolvedDestination}.
+    
+Return EXACTLY a JSON object with this structure (no markdown, just JSON):
+{
+  "flights": [ { "title": "Flight Name/Route", "provider": "Website Name", "price": "Price in ₹", "url": "Actual URL to book", "rating": "Rating or review count" } ],
+  "hotels": [ { "title": "Hotel Name", "provider": "Platform", "price": "Price/night", "url": "Actual URL to book", "rating": "Out of 5" } ],
+  "offers": [ { "title": "Discount info", "provider": "Platform", "code": "COUPONCODE", "url": "URL to apply" } ],
+  "weather": "25°C, Partly Cloudy, Best time to visit...",
+  "safety": "General safety advisory..."
+}
+Be sure to include actual URLs (links) from your search results. Limit to top 3 for each category.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        temperature: 0.3
+      }
+    });
+
+    const resultText = response.text || "";
+    // Extract JSON block in case it comes with markdown
+    const jsonMatch = resultText.match(/\\{.*\\}/s) || [resultText];
+    let cleanedJson = jsonMatch[0].replace(/\\`\\`\\`json/g, '').replace(/\\`\\`\\`/g, '').trim();
+    
+    try {
+      const parsed = JSON.parse(cleanedJson);
+      // Validate structure minimally
+      if (!parsed.flights && !parsed.hotels) throw new Error("Invalid structure from Search API");
+      return res.json(parsed);
+    } catch (parseErr) {
+      console.error("[ZenPlan Server] Failed to parse grounded JSON:", cleanedJson);
+      // Fallback if parsing fails but grounding worked (Gemini might have returned conversational text)
+      throw new Error("Could not parse deals into structured format. Retry later.");
+    }
+  } catch (error: any) {
+    console.error("[ZenPlan Server] Live Deals Search Error:", error);
+    // Generic simple fallback so app doesn't crash
+    if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
+         console.log("[ZenPlan] Returning fallback for live deals due to API availability or quota error.");
+         return res.json({
+            flights: [{ title: `Budget Flight to ${resolvedDestination}`, provider: "MakeMyTrip Sandbox", price: "₹4,500", url: "https://www.makemytrip.com/", rating: "4/5" }],
+            hotels: [{ title: `Premium Stay in ${resolvedDestination}`, provider: "Booking.com Sandbox", price: "₹2,500/night", url: "https://www.booking.com/", rating: "4.8/5" }],
+            offers: [{ title: "Flat 10% Off on Flights", provider: "Cleartrip", code: "CTFLY10", url: "https://www.cleartrip.com/" }]
+         });
+    }
+    return res.status(500).json({
+      error: "Error fetching live deals from verified sources.",
       details: error.message
     });
   }

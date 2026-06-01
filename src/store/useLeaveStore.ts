@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { UserProfile, LeaveBalances, TravelPreferences, ItineraryDay, BudgetForecast, Achievement, ChatMessage, OfficeLocation } from "../types";
+import { UserProfile, LeaveBalances, TravelPreferences, ItineraryDay, BudgetForecast, Achievement, ChatMessage, OfficeLocation, LiveDealsData } from "../types";
 
 interface LeaveState {
   isAuthenticated: boolean;
@@ -19,6 +19,8 @@ interface LeaveState {
   itinerary: ItineraryDay[];
   isGeneratingItinerary: boolean;
   budgetForecast: BudgetForecast;
+  liveDeals: LiveDealsData | null;
+  isFetchingDeals: boolean;
 
   // Sidebar resizable/collapsible layout states
   sidebarWidth: number;
@@ -39,6 +41,7 @@ interface LeaveState {
   resetSwaps: () => void;
   setTripLocation: (loc: string) => void;
   generateItinerary: (destination: string) => Promise<void>;
+  fetchLiveDeals: (destination: string) => Promise<void>;
   lockTrip: () => void;
   syncToHRMS: () => Promise<boolean>;
   unlockTrip: () => void;
@@ -249,6 +252,8 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
       total: 40500,
       currency: "INR",
     },
+    liveDeals: null,
+    isFetchingDeals: false,
 
     // Sidebar layout states
     sidebarWidth: 72,
@@ -456,6 +461,35 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
         console.warn("Using high-fidelity pre-compiled recovery planner matrices (API key bypass).");
         const customizedDays = getDynamicFallbackItinerary(destination, get().preferences.budgetLevel);
         set({ itinerary: customizedDays, isGeneratingItinerary: false });
+      }
+    },
+
+    fetchLiveDeals: async (destination: string) => {
+      set({ isFetchingDeals: true });
+      try {
+        const response = await fetch("/api/live-deals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destination,
+            origin: get().user.location,
+            budgetLevel: get().preferences.budgetLevel,
+            dates: "Upcoming long weekend",
+          }),
+        });
+
+        if (!response.ok) throw new Error("Live deals API failed");
+
+        const data = await response.json();
+        if (data && (data.flights || data.hotels)) {
+          set({ liveDeals: data, isFetchingDeals: false });
+        } else {
+          throw new Error("Invalid deals structure returned");
+        }
+      } catch (err) {
+        console.warn("Using mock fallback deals for live-deals (API error or key bypass).");
+        // We let the server API handle the standard fallback, but just in case of complete network failure:
+        set({ isFetchingDeals: false });
       }
     },
 

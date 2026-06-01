@@ -63,3 +63,34 @@ export interface ChatMessage {
   text: string;
   timestamp: string;
 }
+
+export interface FlightDeal {
+  title: string;
+  provider: string;
+  price: string;
+  url: string;
+  rating?: string;
+}
+
+export interface HotelDeal {
+  title: string;
+  provider: string;
+  price: string;
+  url: string;
+  rating?: string;
+}
+
+export interface OfferDeal {
+  title: string;
+  provider: string;
+  code: string;
+  url: string;
+}
+
+export interface LiveDealsData {
+  flights: FlightDeal[];
+  hotels: HotelDeal[];
+  offers: OfferDeal[];
+  weather?: string;
+  safety?: string;
+}

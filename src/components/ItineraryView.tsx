@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
 import { MapPin, Calendar, Compass, ShieldAlert, Sparkles, AlertCircle, DollarSign, Lock, Play, RefreshCw, Layers, GitCompare, ArrowRightLeft, ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { LiveDealsCard } from "./LiveDealsCard";
 
 // Geolocation helper mimicking real mapping positions of cities to dynamic canvas coords (viewBox 0 0 400 300)
 function getCoordsForName(name: string, isOrigin: boolean = false) {
@@ -1032,6 +1033,11 @@ export const ItineraryView: React.FC = () => {
             </div>
           </div>
 
+        </div>
+
+        {/* Live Deals Section appended at bottom */}
+        <div className="mt-8">
+          <LiveDealsCard />
         </div>
 
       </div>
