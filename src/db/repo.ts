@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 // Symmetrical local model mapping
 export interface DbEmployee {
   id?: number;
+  email: string;
   name: string;
   role: string;
   avatar: string;
@@ -32,23 +33,23 @@ const sandboxCache: Record<string, DbEmployee> = {};
 /**
  * Retrieves an employee record by name.
  */
-export async function getEmployeeByName(name: string): Promise<DbEmployee | null> {
-  const normName = name.trim().toLowerCase();
+export async function getEmployeeByEmail(email: string): Promise<DbEmployee | null> {
+  const normEmail = email.trim().toLowerCase();
   
   try {
     if (!dbStatus.isConfigured) {
-      console.log(`[ZenQuery Fallback] Local server cache fetch: ${name}`);
-      return sandboxCache[normName] || null;
+      console.log(`[ZenQuery Fallback] Local server cache fetch: ${email}`);
+      return sandboxCache[normEmail] || null;
     }
 
     const records = await db
       .select()
       .from(employees)
-      .where(eq(employees.name, name.trim()));
+      .where(eq(employees.email, normEmail));
     
     return (records[0] as DbEmployee) || null;
   } catch (error) {
-    console.error(`[ZenQuery Exception] Failed to query DB for employee: ${name}`, error);
+    console.error(`[ZenQuery Exception] Failed to query DB for employee: ${email}`, error);
     throw new Error("Database query failed. Please ensure schema matches active definition.", { cause: error });
   }
 }
@@ -57,24 +58,24 @@ export async function getEmployeeByName(name: string): Promise<DbEmployee | null
  * Upserts an employee record on name match.
  */
 export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> {
-  const name = employee.name.trim();
-  const normName = name.toLowerCase();
+  const email = employee.email.trim();
+  const normEmail = email.toLowerCase();
 
   try {
     if (!dbStatus.isConfigured) {
-      console.log(`[ZenQuery Fallback] Local server cache upsert: ${name}`);
-      sandboxCache[normName] = {
+      console.log(`[ZenQuery Fallback] Local server cache upsert: ${email}`);
+      sandboxCache[normEmail] = {
         ...employee,
         updatedAt: new Date(),
       };
-      return sandboxCache[normName];
+      return sandboxCache[normEmail];
     }
 
     const insertedRows = await db
       .insert(employees)
       .values({
-        name,
-        role: employee.role,
+        email: normEmail,
+        name: employee.name,
         avatar: employee.avatar,
         location: employee.location,
         level: employee.level,
@@ -93,8 +94,9 @@ export async function upsertEmployee(employee: DbEmployee): Promise<DbEmployee> 
         activeHolidaySwaps: employee.activeHolidaySwaps,
       })
       .onConflictDoUpdate({
-        target: employees.name,
+        target: employees.email,
         set: {
+          name: employee.name,
           role: employee.role,
           avatar: employee.avatar,
           location: employee.location,

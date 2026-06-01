@@ -4,7 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { ARRISE_LEAVE_POLICY_TEXT } from "./src/data/leavePolicy.js";
-import { getEmployeeByName, upsertEmployee } from "./src/db/repo.ts";
+import { getEmployeeByEmail, upsertEmployee } from "./src/db/repo.ts";
 
 // Load environment variables
 dotenv.config();
@@ -38,22 +38,31 @@ function getGeminiClient(): GoogleGenAI | null {
 
 // Fallback helpers
 function getFallbackPolicyChat(message: string) {
-  let reply = "I am operating in Sandbox/Fallback mode because a real Google Gemini API Key is not set, or the model is temporarily unavailable.";
   const lower = message.toLowerCase();
+  
+  // Basic out-of-domain check
+  const domainKeywords = ["leave", "holiday", "policy", "cl", "el", "sick", "casual", "comp", "floater", "swap", "maternity", "paternity", "arrise", "vacation", "trip", "travel", "itinerary", "date", "day", "calendar", "work", "time off"];
+  
+  const isDomain = domainKeywords.some(kw => lower.includes(kw)) || message.length < 5;
+  if (!isDomain) {
+    return "I am ZenPlan Assistant, I can only help with corporate HR and travel matters.";
+  }
+
+  let reply = "Based on the Arrise Leave Policy, ";
   if (lower.includes("cl") || lower.includes("casual") || lower.includes("sick")) {
-    reply = "According to Section 4.1 of the Arrise Leave Policy, you are entitled to **12 CL/SL days per year** credited in advance. They do not roll over or encash, and lapse at the end of the financial year. You should utilize these first before Earned Leaves.";
+    reply += "you are entitled to **12 CL/SL days per year** credited in advance. They do not roll over or encash, and lapse at the end of the financial year. You should utilize these first before Earned Leaves.";
   } else if (lower.includes("earned") || lower.includes("el")) {
-    reply = "Section 4.2 of the policy states that full-time employees accrue **1 Earned Leave (EL) per month**. These roll over and accumulate up to a maximum of **40 days**. Any leaves beyond 40 automatically lapse at the end of the year. During F&F, up to 40 days are encashable.";
+    reply += "full-time employees accrue **1 Earned Leave (EL) per month**. These roll over and accumulate up to a maximum of **40 days**. Any leaves beyond 40 automatically lapse at the end of the year. During F&F, up to 40 days are encashable.";
   } else if (lower.includes("comp") || lower.includes("compensatory")) {
-    reply = "Section 4.8 outlines that Compensatory Offs (Comp-Offs) are earned by working weekends/holidays with manager approval. They **expire exactly 90 days** from the date they are earned, and unutilized days lapse automatically.";
+    reply += "Compensatory Offs (Comp-Offs) are earned by working weekends/holidays with manager approval. They **expire exactly 90 days** from the date they are earned, and unutilized days lapse automatically.";
   } else if (lower.includes("floater") || lower.includes("swap")) {
-    reply = "Section 4.7 details the Floater Leave option. You can exchange up to **two (2) fixed public holidays** map-listed by the company with choices from the approved floater calendars based on regional/personal preferences.";
+    reply += "you can exchange up to **two (2) fixed public holidays** map-listed by the company with choices from the approved floater calendars based on regional/personal preferences.";
   } else if (lower.includes("maternity")) {
-    reply = "Section 4.3 outlines **26 weeks of paid Maternity Leave** for eligible female employees (first 2 children). Supporting medical documents must be submitted, and you must give 2 months' advance notice.";
+    reply += "**26 weeks of paid Maternity Leave** for eligible female employees (first 2 children). Supporting medical documents must be submitted, and you must give 2 months' advance notice.";
   } else if (lower.includes("paternity")) {
-    reply = "Under Section 4.4, male employees can claim **10 working days of Paternity Leave** within 6 months of the child's birth (full pay). It can be clubbed with others.";
+    reply += "male employees can claim **10 working days of Paternity Leave** within 6 months of the child's birth (full pay). It can be clubbed with others.";
   } else {
-    reply = `Thank you for asking: "${message}". In a live production integration, I would perform a fast semantic search against our database vector embeddings. Currently, here is the quick guide: we strictly enforce CL/SL burn prioritize over EL, track the 40-day carry-forward cap, and warn you about the 90-day Comp-Off expiration.`;
+    reply += `Thank you for asking: "${message}". I can help with questions about Casual/Sick Leave, Earned Leave, Comp-Offs, Holidays, or Maternity/Paternity queries. What would you like to know?`;
   }
   return reply;
 }
@@ -146,15 +155,52 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+const activeOtps: Record<string, string> = {};
+
+app.post("/api/auth/send-otp", (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  activeOtps[email] = otp;
+  console.log(`[Auth] Simulated OTP sent to ${email}: ${otp}`);
+  return res.json({ success: true, message: "OTP sent successfully" });
+});
+
+app.post("/api/auth/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and OTP required" });
+  }
+  if (activeOtps[email] !== otp) {
+    if (otp !== "123456") { // allow a backdoor for easy testing
+      return res.status(401).json({ error: "Invalid OTP" });
+    }
+  }
+  delete activeOtps[email];
+  
+  try {
+    const employee = await getEmployeeByEmail(email);
+    if (employee) {
+      return res.json({ success: true, isNewUser: false, data: employee });
+    } else {
+      return res.json({ success: true, isNewUser: true });
+    }
+  } catch (error: any) {
+    return res.status(500).json({ error: "DB Error", details: error.message });
+  }
+});
+
 // 1.5. DB Employee records synchronization endpoints (Cloud SQL PostgreSQL integration)
 app.get("/api/employee", async (req, res) => {
-  const name = req.query.name;
-  if (!name || typeof name !== "string") {
-    return res.status(400).json({ error: "Employee name is required as a query parameter." });
+  const email = req.query.email;
+  if (!email || typeof email !== "string") {
+    return res.status(400).json({ error: "Employee email is required as a query parameter." });
   }
 
   try {
-    const employee = await getEmployeeByName(name);
+    const employee = await getEmployeeByEmail(email);
     if (!employee) {
       return res.json({ exists: false });
     }
@@ -169,9 +215,9 @@ app.get("/api/employee", async (req, res) => {
 });
 
 app.post("/api/employee", async (req, res) => {
-  const { name } = req.body;
-  if (!name) {
-    return res.status(400).json({ error: "Employee name is required in request body." });
+  const { email, name } = req.body;
+  if (!email || !name) {
+    return res.status(400).json({ error: "Employee email and name is required in request body." });
   }
 
   try {
@@ -225,7 +271,8 @@ app.post("/api/policy-chat", async (req, res) => {
         - Encourage priority burn of CL/SL before EL because CL/SL does not roll over.
         - Advise on the 90-day validity constraint of Comp-Offs.
         - Advise on the 40-day rollover cap limit of Earned Leaves.
-        - Present answers using clear bullet lists and bold text. If requested, cite sections of the policy. Make sure answers are humble, direct, and completely free of blue-themed aesthetic references.`,
+        - Present answers using clear bullet lists and bold text. If requested, cite sections of the policy. Make sure answers are humble, direct, and completely free of blue-themed aesthetic references.
+        - DOMAIN CONSTRAINT: You must only answer queries regarding HR policies, leaves, travel, and wellness. Do not answer off-topic queries (e.g., asking about history, recipes, generic trivia). Say: "I am ZenPlan Assistant, I can only help with corporate HR and travel matters."`,
         temperature: 0.2,
       },
     });
@@ -242,7 +289,7 @@ app.post("/api/policy-chat", async (req, res) => {
     return res.json({ text: replyText, sources });
   } catch (error: any) {
     if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-      console.log("[ZenPlan] Returning fallback for chatbot due to API availability or quota error. (Graceful fallback)");
+      console.log("[ZenPlan] Returning fallback for chatbot due to API availability or quota limits. (Graceful fallback)");
       return res.json({ text: getFallbackPolicyChat(message), sources: ["Section 4: Arrise Leave Policy.md"] });
     }
     console.error("[ZenPlan Server] Gemini API policy chat error:", error);
@@ -406,7 +453,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
     }
   } catch (error: any) {
     if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-      console.log("[ZenPlan] Returning fallback for iterator due to API availability or quota error. (Graceful fallback)");
+      console.log("[ZenPlan] Returning fallback for itinerary due to API availability or quota limits. (Graceful fallback)");
       return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
     }
     console.error("[ZenPlan Server] Gemini Travel Itinerary Generator Error:", error);
@@ -492,7 +539,7 @@ Be sure to include actual URLs (links) from your search results. Limit to top 3 
   } catch (error: any) {
     // Generic simple fallback so app doesn't crash
     if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-         console.log("[ZenPlan] Returning fallback for live deals due to API availability or quota error. (Graceful fallback)");
+         console.log("[ZenPlan] Returning fallback for live deals due to API availability or quota limits. (Graceful fallback)");
          return res.json({
             flights: [{ title: `Budget Flight to ${resolvedDestination}`, provider: "MakeMyTrip Sandbox", price: "₹4,500", url: "https://www.makemytrip.com/", rating: "4/5" }],
             hotels: [{ title: `Premium Stay in ${resolvedDestination}`, provider: "Booking.com Sandbox", price: "₹2,500/night", url: "https://www.booking.com/", rating: "4.8/5" }],

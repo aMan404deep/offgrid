@@ -2,7 +2,8 @@ import { pgTable, serial, text, integer, boolean, timestamp } from "drizzle-orm/
 
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(), // Unique employee name
+  email: text("email").unique(),
+  name: text("name").notNull(),
   role: text("role").notNull(),
   avatar: text("avatar").notNull(),
   location: text("location").notNull(), // 'Noida' | 'Hyderabad' | 'Kolkata'

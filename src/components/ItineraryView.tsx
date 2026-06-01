@@ -231,7 +231,7 @@ export const ItineraryView: React.FC = () => {
     <div id="itinerary-wrapper" className="space-y-8 animate-fade-in font-sans pb-16 select-none">
       
       {/* Page Header */}
-      <div id="itinerary-header" className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div id="itinerary-header" className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-stone-900 tracking-tight">Travel Itinerary Board</h2>
           <p className="text-sm text-stone-500 mt-1 font-medium font-sans">
@@ -239,10 +239,10 @@ export const ItineraryView: React.FC = () => {
           </p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-col lg:flex-row gap-3 w-full xl:w-auto">
           {/* Destination form box */}
-          <form onSubmit={handleGenerate} className="flex gap-2 shrink-0">
-            <div className="relative">
+          <form onSubmit={handleGenerate} className="flex flex-col sm:flex-row gap-3 w-full">
+            <div className="relative w-full sm:w-[280px]">
               <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-stone-400" />
               <input
                 id="itinerary-dest-input"
@@ -251,13 +251,13 @@ export const ItineraryView: React.FC = () => {
               onChange={(e) => setDestInput(e.target.value)}
               onFocus={() => setActiveSuggestionsField("main")}
               onBlur={() => setTimeout(() => setActiveSuggestionsField(null), 250)}
-              className="pl-10 pr-4 py-2.5 bg-white border border-stone-200 rounded-xl text-[#1c1b1b] text-xs font-semibold focus:outline-none focus:border-[#944a00] focus:ring-2 focus:ring-[#944a00]/10 w-64 sm:w-80 transition-all placeholder-[#897365]"
+              className="pl-10 pr-4 py-2.5 bg-white border border-stone-200 rounded-xl text-[#1c1b1b] text-xs font-semibold focus:outline-none focus:border-[#944a00] focus:ring-2 focus:ring-[#944a00]/10 w-full transition-all placeholder-[#897365]"
               placeholder="Type or select a destination..."
             />
 
             {/* Google Maps Style Autocomplete dropdown */}
             {activeSuggestionsField === "main" && (
-              <div className="absolute left-0 mt-1.5 w-72 sm:w-80 bg-white border border-stone-200 rounded-2xl shadow-xl z-55 overflow-hidden text-left py-2 font-mono">
+              <div className="absolute left-0 mt-1.5 w-full bg-white border border-stone-200 rounded-2xl shadow-xl z-55 overflow-hidden text-left py-2 font-mono">
                 <div className="px-3.5 py-1.5 flex justify-between items-center text-[9px] font-mono font-bold text-[#897365] tracking-wider">
                   <span>GOOGLE MAPS RETREATS</span>
                   <span className="text-[#944a00] bg-[#ffdcc5] px-1.5 py-0.5 rounded-lg font-bold">GPS SUGGEST</span>
@@ -304,7 +304,7 @@ export const ItineraryView: React.FC = () => {
             type="submit"
             id="itinerary-btn-generate"
             disabled={isGeneratingItinerary}
-            className="px-4 py-2 bg-stone-950 text-white hover:bg-stone-900 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            className="px-4 py-2.5 bg-stone-950 text-white hover:bg-stone-900 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 w-full sm:w-auto shrink-0"
           >
             {isGeneratingItinerary ? (
               <RefreshCw className="w-4 h-4 animate-spin" />
@@ -319,7 +319,7 @@ export const ItineraryView: React.FC = () => {
           type="button"
           onClick={handleDownloadPDF}
           disabled={isDownloading || isGeneratingItinerary}
-          className="px-4 py-2 bg-white text-stone-900 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+          className="px-4 py-2.5 bg-white text-stone-900 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0 w-full lg:w-auto"
         >
           {isDownloading ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
@@ -665,10 +665,10 @@ export const ItineraryView: React.FC = () => {
       )}
 
       {/* Main Grid: Left Column (Itinerary Timeline), Right Column (Budget & Map widget) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:items-start">
         
         {/* Left Columns: Timeline Board */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-8 space-y-8">
           
           {/* Feasibility Alert Block */}
           <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-3xl flex items-start gap-3.5 shadow-sm">
@@ -714,29 +714,27 @@ export const ItineraryView: React.FC = () => {
                     </div>
 
                     {/* Activities stack */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4.5">
+                    <div className="grid grid-cols-1 gap-6 border-l-2 border-[#eae7e7] ml-3 pl-5 py-2">
                       {["Morning", "Afternoon", "Evening"].map((category) => {
                         const items = day.activities.filter(act => act.category === category);
+                        if (items.length === 0) return null;
                         return (
-                          <div key={category} className="space-y-2">
-                            <span className="text-[10px] font-mono font-bold text-[#897365] uppercase tracking-widest block mb-2">{category}</span>
-                            {items.length === 0 ? (
-                              <div className="p-3 bg-stone-50/50 rounded-xl border border-dashed border-[#eae7e7] text-center text-[10px] text-[#897365]">
-                                Quiet reflection state
-                              </div>
-                            ) : (
-                              items.map((act) => (
-                                <div key={act.id} className="p-3 bg-[#fcf9f8] border border-[#eae7e7] rounded-xl hover:bg-[#f6f3f2] transition-colors space-y-1">
+                          <div key={category} className="space-y-3 relative">
+                            <div className="absolute -left-[27px] top-1 bg-white p-0.5 rounded-full">
+                               <div className="w-2.5 h-2.5 rounded-full bg-[#944a00] border-2 border-[#fcf9f8]" />
+                            </div>
+                            <span className="text-[10px] font-mono font-bold text-[#897365] uppercase tracking-widest block">{category}</span>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {items.map((act) => (
+                                <div key={act.id} className="p-4 bg-[#fcf9f8] border border-[#eae7e7] rounded-2xl hover:border-[#dcd9d9] hover:bg-white hover:shadow-xs transition-all space-y-2">
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-[9px] font-mono font-bold text-[#897365] bg-[#eae7e7] px-1.5 py-0.5 rounded leading-none">{act.time}</span>
-                                    {/* Small circle category indicator */}
-                                    <span className="w-1.5 h-1.5 rounded-full bg-[#944a00]" />
+                                    <span className="text-[10px] font-mono font-bold text-[#564337] bg-[#eae7e7] px-2 py-1 rounded-md leading-none">{act.time}</span>
                                   </div>
-                                  <h5 className="text-xs font-bold text-[#1c1b1b] leading-tight">{act.title}</h5>
-                                  <p className="text-[10px] text-[#564337] leading-normal font-sans line-clamp-3">{act.description}</p>
+                                  <h5 className="text-sm font-bold text-[#1c1b1b] leading-tight">{act.title}</h5>
+                                  <p className="text-xs text-[#564337] leading-relaxed font-sans">{act.description}</p>
                                 </div>
-                              ))
-                            )}
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
@@ -766,7 +764,7 @@ export const ItineraryView: React.FC = () => {
         </div>
 
         {/* Right Column: Live Estimator & Mini Map */}
-        <div className="space-y-6">
+        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
           
           {/* Live budget estimator box */}
           <div id="itinerary-budget-card" className="bg-white border border-[#eae7e7] rounded-2xl shadow-sm p-6 space-y-6">
@@ -1092,12 +1090,13 @@ export const ItineraryView: React.FC = () => {
 
         </div>
 
-        {/* Live Deals Section appended at bottom */}
-        <div className="mt-8">
-          <LiveDealsCard />
-        </div>
-
       </div>
+
+      {/* Live Deals Section appended at bottom */}
+      <div className="mt-8 w-full">
+        <LiveDealsCard />
+      </div>
+
       </div>
 
     </div>

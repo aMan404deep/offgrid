@@ -9,7 +9,18 @@ export const SettingsView: React.FC = () => {
     toggleVibe,
     resetPreferences,
     budgetForecast,
+    user,
+    updateProfile,
+    logout,
   } = useLeaveStore();
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    updateProfile({ location: e.target.value as any });
+  };
+  
+  const handleRoleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateProfile({ role: e.target.value });
+  };
 
   const vibesOptions = [
     { id: "Mountains", label: "Mountains", desc: "Elevation hikes, crisp morning air & evergreen ridges", icon: "mountain" },
@@ -45,6 +56,39 @@ export const SettingsView: React.FC = () => {
         
         {/* Left Columns: Config Panel */}
         <div className="lg:col-span-2 space-y-6">
+
+          {/* Account Settings */}
+          <div className="bg-white border border-[#eae7e7] rounded-2xl p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-[#1c1b1b]">Account Configuration</h3>
+              <p className="text-xs text-[#564337] mt-0.5">Manage your assigned HR location and core corporate role.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-[#564337] tracking-wider uppercase">Regional Office</label>
+                <select
+                  value={user.location}
+                  onChange={handleLocationChange}
+                  className="w-full bg-white border border-[#eae7e7] rounded-xl px-3 py-2.5 text-[#1c1b1b] text-sm focus:outline-none focus:border-[#944a00] font-medium"
+                >
+                  <option value="Noida">Noida (North Office)</option>
+                  <option value="Hyderabad">Hyderabad (South Hub)</option>
+                  <option value="Kolkata">Kolkata (East Center)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono font-bold text-[#564337] tracking-wider uppercase">Corporate Role</label>
+                <input
+                  type="text"
+                  value={user.role}
+                  onChange={handleRoleChange}
+                  className="w-full bg-white border border-[#eae7e7] rounded-xl px-3 py-2.5 text-[#1c1b1b] text-sm focus:outline-none focus:border-[#944a00] font-medium"
+                />
+              </div>
+            </div>
+          </div>
           
           {/* Engine learning status card */}
           <div className="p-4 bg-[#ffdcc5]/10 border border-[#eae7e7] rounded-2xl flex items-center justify-between gap-4">
@@ -199,6 +243,15 @@ export const SettingsView: React.FC = () => {
                 Includes flights, double accommodation package, and taxi transfers matched for the region. Matches <strong>{preferences.budgetLevel === 3 ? "Luxury" : preferences.budgetLevel === 1 ? "Budget" : "Mid-Range"}</strong> standards.
               </div>
             </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={logout}
+              className="w-full bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 text-sm tracking-wide cursor-pointer shadow-sm transition-colors"
+            >
+              Log Out Securely
+            </button>
           </div>
 
         </div>

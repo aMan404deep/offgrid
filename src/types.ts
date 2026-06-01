@@ -1,6 +1,7 @@
 export type OfficeLocation = 'Noida' | 'Hyderabad' | 'Kolkata';
 
 export interface UserProfile {
+  email: string;
   name: string;
   role: string;
   avatar: string;

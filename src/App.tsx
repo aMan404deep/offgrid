@@ -10,6 +10,7 @@ import { SettingsView } from "./components/SettingsView";
 import { FinalizeSyncView } from "./components/FinalizeSyncView";
 import { SharedItineraryView } from "./components/SharedItineraryView";
 import { AppLogo } from "./components/AppLogo";
+import { AiAssistantWidget } from "./components/AiAssistantWidget";
 import { Menu, Sparkles } from "lucide-react";
 
 export default function App() {
@@ -19,10 +20,15 @@ export default function App() {
     sidebarWidth, 
     isSidebarCollapsed, 
     isMobileSidebarOpen, 
-    setMobileSidebarOpen 
+    setMobileSidebarOpen,
+    checkAutoLogin
   } = useLeaveStore();
 
   const [isMobile, setIsMobile] = React.useState(false);
+
+  useEffect(() => {
+    checkAutoLogin();
+  }, []);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
@@ -100,6 +106,7 @@ export default function App() {
           {renderActiveTabContent()}
         </div>
       </main>
+      <AiAssistantWidget />
     </div>
   );
 }

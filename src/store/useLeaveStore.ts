@@ -28,6 +28,8 @@ interface LeaveState {
   isMobileSidebarOpen: boolean;
   
   // Actions
+  checkAutoLogin: () => void;
+  finalizeLogin: (data: any) => void;
   login: (location: OfficeLocation, name: string) => void;
   logout: () => void;
   setTab: (tab: LeaveState['currentTab']) => void;
@@ -49,6 +51,7 @@ interface LeaveState {
   setSidebarCollapsed: (c: boolean) => void;
   setMobileSidebarOpen: (open: boolean) => void;
   updateUserAvatar: (avatar: string) => void;
+  updateProfile: (profile: Partial<UserProfile>) => void;
 }
 
 const DEFAULT_PREFERENCES: TravelPreferences = {
@@ -189,6 +192,7 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email: s.user.email,
           name: s.user.name,
           role: s.user.role,
           avatar: s.user.avatar,
@@ -222,6 +226,7 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
     isAuthenticated: false,
     currentTab: "gateway",
     user: {
+      email: "alex@arrisesolutions.com",
       name: "Alex Singh",
       role: "Senior Engineering Specialist",
       avatar: "",
@@ -260,80 +265,127 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
     isSidebarCollapsed: true,
     isMobileSidebarOpen: false,
 
-    login: async (location: OfficeLocation, name: string) => {
-      const defaultUser = get().user;
-      const cleanName = name.trim() || defaultUser.name;
-      
-      try {
-        const response = await fetch(`/api/employee?name=${encodeURIComponent(cleanName)}`);
-        if (response.ok) {
-          const result = await response.json();
-          if (result.exists && result.data) {
-            const dbEmp = result.data;
-            
-            let parsedVibes = ["Mountains"];
-            if (dbEmp.vibes) {
-              parsedVibes = dbEmp.vibes.split(",").map((v: string) => v.trim()).filter((v: string) => v !== "");
+    checkAutoLogin: async () => {
+      const savedEmail = localStorage.getItem("zenplan_email");
+      if (savedEmail) {
+        try {
+          const response = await fetch(`/api/employee?email=${encodeURIComponent(savedEmail)}`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.exists && result.data) {
+              get().finalizeLogin(result.data);
+              return;
             }
-            let parsedSwaps = {};
-            if (dbEmp.activeHolidaySwaps) {
-              try {
-                parsedSwaps = JSON.parse(dbEmp.activeHolidaySwaps);
-              } catch (pErr) {
-                parsedSwaps = {};
-              }
-            }
-
-            set({
-              isAuthenticated: true,
-              currentTab: "dashboard",
-              user: {
-                name: dbEmp.name,
-                role: dbEmp.role,
-                avatar: dbEmp.avatar,
-                location: dbEmp.location as OfficeLocation,
-                level: dbEmp.level,
-              },
-              leaveBalances: {
-                earnedLeave: dbEmp.earnedLeave,
-                earnedLeaveMax: dbEmp.earnedLeaveMax,
-                clCount: dbEmp.clCount,
-                slCount: dbEmp.slCount,
-                compOffCount: dbEmp.compOffCount,
-                compOffExpiryDays: dbEmp.compOffExpiryDays,
-              },
-              preferences: {
-                vibes: parsedVibes,
-                budgetLevel: dbEmp.budgetLevel,
-                prioritizeROI: dbEmp.prioritizeROI,
-                prioritizeLowestCost: dbEmp.prioritizeLowestCost,
-              },
-              currentTripLocation: dbEmp.currentTripLocation,
-              isTripLocked: dbEmp.isTripLocked,
-              activeHolidaySwaps: parsedSwaps,
-            });
-            
-            get().generateItinerary(dbEmp.currentTripLocation);
-            return;
           }
+        } catch(e) {}
+      }
+    },
+
+    finalizeLogin: (dbEmp: any) => {
+      let parsedVibes = ["Mountains"];
+      if (dbEmp.vibes) {
+        parsedVibes = dbEmp.vibes.split(",").map((v: string) => v.trim()).filter((v: string) => v !== "");
+      }
+      let parsedSwaps = {};
+      if (dbEmp.activeHolidaySwaps) {
+        try {
+          parsedSwaps = JSON.parse(dbEmp.activeHolidaySwaps);
+        } catch (pErr) {
+          parsedSwaps = {};
         }
-      } catch (err) {
-        console.warn("[ZenPlan SQL Login Fallback] DB loading connection offline:", err);
       }
 
       set({
         isAuthenticated: true,
         currentTab: "dashboard",
         user: {
+          email: dbEmp.email,
+          name: dbEmp.name,
+          role: dbEmp.role,
+          avatar: dbEmp.avatar,
+          location: dbEmp.location as OfficeLocation,
+          level: dbEmp.level,
+        },
+        leaveBalances: {
+          earnedLeave: dbEmp.earnedLeave,
+          earnedLeaveMax: dbEmp.earnedLeaveMax,
+          clCount: dbEmp.clCount,
+          slCount: dbEmp.slCount,
+          compOffCount: dbEmp.compOffCount,
+          compOffExpiryDays: dbEmp.compOffExpiryDays,
+        },
+        preferences: {
+          vibes: parsedVibes,
+          budgetLevel: dbEmp.budgetLevel,
+          prioritizeROI: dbEmp.prioritizeROI,
+          prioritizeLowestCost: dbEmp.prioritizeLowestCost,
+        },
+        currentTripLocation: dbEmp.currentTripLocation,
+        isTripLocked: dbEmp.isTripLocked,
+        activeHolidaySwaps: parsedSwaps,
+      });
+      localStorage.setItem("zenplan_email", dbEmp.email);
+      get().generateItinerary(dbEmp.currentTripLocation);
+    },
+
+    login: async (location: OfficeLocation, name: string) => {
+      const defaultUser = get().user;
+      const cleanName = name.trim() || defaultUser.name;
+      const initialRole = localStorage.getItem("zenplan_initial_role") || "Optimizer";
+      
+      const newEmp = {
+        email: localStorage.getItem("zenplan_pending_email") || "temp@arrisesolutions.com",
+        name: cleanName,
+        role: initialRole,
+        avatar: "",
+        location: location as OfficeLocation,
+        level: "Lv 4 Leave Optimizer",
+        earnedLeave: 14,
+        earnedLeaveMax: 40,
+        clCount: 6,
+        slCount: 6,
+        compOffCount: 2,
+        compOffExpiryDays: 45,
+        vibes: "Mountains",
+        budgetLevel: 2,
+        prioritizeROI: true,
+        prioritizeLowestCost: false,
+        currentTripLocation: "Coimbatore",
+        isTripLocked: false,
+        activeHolidaySwaps: "{}"
+      };
+      
+      try {
+        const response = await fetch('/api/employee', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newEmp)
+        });
+        if (response.ok) {
+          const resObj = await response.json();
+          if (resObj.success && resObj.data) {
+             get().finalizeLogin(resObj.data);
+             return;
+          }
+        }
+      } catch (err) {}
+
+      set({
+        isAuthenticated: true,
+        currentTab: "dashboard",
+        user: {
           ...defaultUser,
+          email: newEmp.email,
           name: cleanName,
           location,
         },
       });
+      localStorage.setItem("zenplan_email", newEmp.email);
       triggerSync();
     },
 
     logout: () => {
+      localStorage.removeItem("zenplan_email");
       set({
         isAuthenticated: false,
         currentTab: "gateway",
@@ -511,6 +563,11 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
 
     updateUserAvatar: (avatar: string) => {
       set((state) => ({ user: { ...state.user, avatar } }));
+      triggerSync();
+    },
+
+    updateProfile: (profile: Partial<UserProfile>) => {
+      set((state) => ({ user: { ...state.user, ...profile } }));
       triggerSync();
     },
 
