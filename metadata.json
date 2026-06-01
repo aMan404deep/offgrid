@@ -1,0 +1,8 @@
+{
+  "name": "Remix: OffGrid",
+  "description": "An automated calendar optimizer and travel planner that helps employees maximize continuous rest days using minimum leave balances under regional corporate guidelines.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
