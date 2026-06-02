@@ -7,6 +7,16 @@ import { ARRISE_LEAVE_POLICY_TEXT } from "./src/data/leavePolicy.js";
 import { getEmployeeByEmail, upsertEmployee } from "./src/db/repo.ts";
 import crypto from "crypto";
 import { getTransitDetails } from "./src/utils/transit.ts";
+import {
+  buildGatewayPrompt,
+  buildWeatherAnalystPrompt,
+  buildEventSniperPrompt,
+  buildCulinaryGuidePrompt,
+  buildRouteOptimizerPrompt,
+  buildEditorInChiefPrompt,
+  buildPolicyChatAgentPrompt,
+  buildLiveSearchAgentPrompt
+} from "./src/agents/index.ts";
 
 function hashPassword(password: string): { salt: string; hash: string } {
   const salt = crypto.randomBytes(16).toString("hex");
@@ -489,18 +499,7 @@ app.post("/api/policy-chat", async (req, res) => {
         { role: "user", parts: [{ text: message }] }
       ],
       config: {
-        systemInstruction: `You are Ziggy, the chill and smart offGrid mascot and automated HR leave assistant for Arrise Solutions (India) Pvt. Ltd. Your objective is to answer employee queries regarding the company's official leave policies accurately, empathetically, and with a friendly, laid-back yet intelligent tone.
-        
-        Strictly refer to the official leave guidelines below:
-        ${ARRISE_LEAVE_POLICY_TEXT}
-
-        Guidelines & Context rules:
-        - Noida, Hyderabad, Kolkata regional holiday mappings.
-        - Encourage priority burn of CL/SL before EL because CL/SL does not roll over.
-        - Advise on the 90-day validity constraint of Comp-Offs.
-        - Advise on the 40-day rollover cap limit of Earned Leaves.
-        - Present answers using clear bullet lists and bold text. If requested, cite sections of the policy. Make sure answers are humble, direct, and completely free of blue-themed aesthetic references.
-        - DOMAIN CONSTRAINT: You must only answer queries regarding HR policies, leaves, travel, and wellness. Do not answer off-topic queries (e.g., asking about history, recipes, generic trivia). Say: "I am Ziggy, your chill offGrid guide, and I can only help with corporate HR and travel matters."`,
+        systemInstruction: buildPolicyChatAgentPrompt(ARRISE_LEAVE_POLICY_TEXT),
         temperature: 0.2,
       },
     });
@@ -550,25 +549,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
     // ==========================================
     // LAYER 1: Gateway Node (Intent Parsing & Normalization)
     // ==========================================
-    const gatewayPrompt = `Analyze this travel request:
-- Destination: "${resolvedDestination}"
-- Days: ${resolvedDays}
-- Base Location: "${resolvedBaseLocation}"
-- Vibe: "${vibe}"
-- Budget Level: ${budgetLevel}
-
-Identify if it's a valid travel/wellness query. If it is, output the normalized parameters as a JSON object of this structure:
-{
-  "isValid": true,
-  "normalizedDestination": "Title Case Destination Name",
-  "normalizedBaseLocation": "Title Case Base Name",
-  "vibe": "vibe",
-  "days": number,
-  "budgetLevel": number
-}
-If the destination name is invalid, gibberish, empty, or dangerous, return:
-{ "isValid": false }
-Return ONLY raw JSON, do not wrap in markdown quotes.`;
+    const gatewayPrompt = buildGatewayPrompt(resolvedDestination, resolvedDays, resolvedBaseLocation, vibe, budgetLevel);
 
     const gatewayResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -658,58 +639,10 @@ Return ONLY raw JSON, do not wrap in markdown quotes.`;
     // ==========================================
     console.log(`[ZenPlan agent] Dispatching parallel Specialist workers via Promise.all...`);
 
-    const weatherPrompt = `You are a professional Meteorology & Environmental Analyst.
-Given Raw Weather Forecast for latitude/longitude: ${lat}/${lon}:
-${rawWeatherData ? JSON.stringify(rawWeatherData.daily || rawWeatherData) : "No raw data available"}
-Analyze this forecast for destination: "${finalDest}" over a period of ${resolvedDays} days. 
-Determine:
-1. Overall climatology (sunny, rainy, sub-zero, humid, chilly etc.).
-2. Vibe compatibility: is it suitable for a '${vibe}' travel itinerary?
-3. Daily direct weather summaries and actionable micro-directives (e.g. bring warm liners, pack umbrellas, optimal morning trek windows).
-Output ONLY brief, high-impact information in a structured JSON schema:
-{
-  "summary": "climatology summary",
-  "vibeSuitability": "rating out of 5",
-  "directives": ["directive 1", "directive 2", "directive 3"]
-}
-Do not write conversational introductory text. Output valid raw JSON.`;
-
-    const eventPrompt = `You are an Event Sniper. Your objective is to find real, live events, festivals, concerts, or local experiences in "${finalDest}".
-Target, evaluate, and extract the best live sports matches, music concerts, theatrical gigs, or local festivals that align with a '${vibe}' vibe and a budget level of ${budgetLevel} (1=budget, 2=mid-range, 3=luxury).
-Use Google Search Grounding to locate 3-4 highly plausible and actual local events occurring near or in ${finalDest}.
-Heuristic rules:
-- Provide exact names, dates, locations, times, and brief details for REAL events if possible; otherwise highly representative seasonal events in the region.
-Return ONLY a structured JSON output:
-{
-  "recommendedEvents": [
-    { "name": "Event Name", "date": "Date of event", "time": "Time of event", "description": "Short matching details", "priceCategory": "economy/mid/luxury" }
-  ]
-}
-Return only raw JSON.`;
-
-    const foodPrompt = `You are an elite Michelin-starred Culinary Guide. 
-Develop a curated gastronomy guide for "${finalDest}" catering to a budget level of ${budgetLevel} (1=budget street food/local dhabas, 2=mid-range bistros/cozy gardens, 3=luxury fine dining/spectacular view reservation venues) and matching a vibe of '${vibe}'.
-Recommend 3-4 top food establishments, signature local dishes to sample, and coffee lounges.
-Return ONLY structured JSON:
-{
-  "culinaryHotspots": [
-    { "establishmentName": "Name", "specialty": "Traditional signature dish", "description": "Atmospheric review", "priceRange": "₹/₹₹/₹₹₹" }
-  ]
-}
-Return only raw JSON.`;
-
-    const routePrompt = `You are a Geospatial Sequence Router.
-Origin base: "${finalBase}".
-Destination: "${finalDest}" (coordinates: ${lat}, ${lon}).
-Optimize the travel routing paths for the trip:
-1. Long-distance transition routes from origin to destination (e.g., flight alignments, high-way roadways, rail links) optimized for budget level ${budgetLevel}.
-2. Intraday local transport options (scooter rentals, auto rickshaw rates, pre-paid private cab alignments) inside the destination.
-Return ONLY structured JSON:
-{
-  "transitRoute": { "type": "flight/rail/drive", "detail": "Transition details from base to dest" },
-  "localTransit": ["transport tip 1", "transport tip 2"]
-}
-Return only raw JSON.`;
+    const weatherPrompt = buildWeatherAnalystPrompt(lat, lon, rawWeatherData, finalDest, resolvedDays, vibe);
+    const eventPrompt = buildEventSniperPrompt(finalDest, vibe, budgetLevel);
+    const foodPrompt = buildCulinaryGuidePrompt(finalDest, vibe, budgetLevel);
+    const routePrompt = buildRouteOptimizerPrompt(finalBase, finalDest, lat, lon, budgetLevel);
 
     const [weatherWorkerRes, eventWorkerRes, foodWorkerRes, routeWorkerRes] = await Promise.all([
       ai.models.generateContent({ model: "gemini-2.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
@@ -730,52 +663,10 @@ Return only raw JSON.`;
     // ==========================================
     console.log("[ZenPlan agent] Layer 4: Booting Editor-in-Chief summary engine (Gemini 2.5 Pro with Search Grounding)...");
 
-    const eicPrompt = `You are the Editor-in-Chief of a premium, hyper-personalized corporate wellness travel planner. 
-Your objective is to compile the reports from your four specialized field workers into a seamless, hour-by-hour travel timeline for a ${resolvedDays}-day itinerary in "${finalDest}" (Base location: "${finalBase}", Vibe: "${vibe}", Budget level ${budgetLevel}).
-
-Below are the raw files submitted by your specialist workers:
-=== WEATHER ANALYST REPORT ===
-${weatherWorkerOutput}
-
-=== EVENT SNIPER TARGET LIST ===
-${eventWorkerOutput}
-
-=== CULINARY MATRIX ===
-${foodWorkerOutput}
-
-=== GEOSPATIAL PATH ANALYSIS ===
-${routeWorkerOutput}
-
-Task directives:
-1. Synthesize a unified, consecutive travel schedule for exactly ${resolvedDays} days. Ensure every single day has a clear dayNumber, dayTitle (brief highlight), and exactly 3 activities (one "Morning", one "Afternoon", and one "Evening") mapped to appropriate timeline slots.
-2. Ensure you naturally fuse the transit routes, culinary recommendations, events, and weather protection directives directly into the activities' titles and descriptions.
-3. Keep the pricing and experience level perfectly in sync with budget level ${budgetLevel} (1=Budget/Economy, 2=Mid-Range, 3=Luxury/Five-Star).
-4. Utilize Google Search grounding to verify the general names and accuracy of local attractions or events in "${finalDest}".
-5. Ensure the final response is generated in strict conformance to the requested JSON layout schema.
-
-Schema contracts to follow:
-{
-  "days": [
-    {
-      "dayNumber": number,
-      "dateStr": "e.g. Day 1, Day 2",
-      "title": "Day Highlight Title",
-      "activities": [
-        {
-          "id": "unique string token e.g. 1a, 1b",
-          "time": "e.g. 08:30 AM",
-          "title": "Activity name",
-          "description": "Explanatory activity description incorporating weather/transit/culinary guides",
-          "category": "Exactly 'Morning', 'Afternoon', or 'Evening'",
-          "icon": "Material Icon name (e.g. flight_land, hotel, restaurant, landscape, local_cafe)"
-        }
-      ]
-    }
-  ],
-  "note": "A summary note about the weather, transit, and features used of the trip"
-}
-
-Do not add outer Markdown blocks like \`\`\`json. Return pure JSON. Ensure it parses cleanly.`;
+    const eicPrompt = buildEditorInChiefPrompt(
+      resolvedDays, finalDest, finalBase, vibe, budgetLevel,
+      weatherWorkerOutput, eventWorkerOutput, foodWorkerOutput, routeWorkerOutput
+    );
 
     const eicResponse = await ai.models.generateContent({
       model: "gemini-2.5-pro",
@@ -837,25 +728,10 @@ app.post("/api/live-deals", async (req, res) => {
   }
 
   try {
-    const budgetTierText = budgetLevel === 3 ? "Luxury / Elite five-star experience" : budgetLevel === 1 ? "Budget / Economy experience" : "Standard / Mid-Range experience";
-    
     // We cannot reliably force complex JSON schema with googleSearch grounding enabled in all SDK versions,
     // so we prompt for strict JSON and manually parse it, OR we use function calling. Let's try responseSchema with search grounding.
     // However, googleSearch grounding might conflict with JSON schema directly. Let's ask Gemini to just return JSON.
-    const prompt = `You are a Live Travel API. Find current, real-world deals for flights and hotels traveling from ${resolvedOrigin} to ${resolvedDestination} for ${dates} catering to a ${budgetTierText}.
-Search for legitimate travel websites (MakeMyTrip, Booking.com, Agoda, Skyscanner, Kayak, etc.).
-Also find general travel coupon codes that are currently active in India (like MMTFLY, GOIBIBO etc).
-Find the current upcoming weather and a brief safety tip for ${resolvedDestination}.
-    
-Return EXACTLY a JSON object with this structure (no markdown, just JSON):
-{
-  "flights": [ { "title": "Flight Name/Route", "provider": "Website Name", "price": "Price in ₹", "url": "Actual URL to book", "rating": "Rating or review count" } ],
-  "hotels": [ { "title": "Hotel Name", "provider": "Platform", "price": "Price/night", "url": "Actual URL to book", "rating": "Out of 5" } ],
-  "offers": [ { "title": "Discount info", "provider": "Platform", "code": "COUPONCODE", "url": "URL to apply" } ],
-  "weather": "25°C, Partly Cloudy, Best time to visit...",
-  "safety": "General safety advisory..."
-}
-Be sure to include actual URLs (links) from your search results. Limit to top 3 for each category.`;
+    const prompt = buildLiveSearchAgentPrompt(resolvedOrigin, resolvedDestination, dates, budgetLevel);
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-pro",
@@ -908,7 +784,9 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: "spa",
     });
-    app.use(vite.middlewares as express.RequestHandler);
+    app.use((req, res, next) => {
+      vite.middlewares(req, res, next);
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
