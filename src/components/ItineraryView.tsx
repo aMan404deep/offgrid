@@ -188,6 +188,59 @@ export const ItineraryView: React.FC = () => {
     type: "origin" | "destination" | "checkpoint";
   } | null>(null);
 
+  const mapRef = React.useRef<HTMLDivElement>(null);
+  const panRef = React.useRef(pan);
+  const dragStartRef = React.useRef(dragStart);
+  const isDraggingRef = React.useRef(isDragging);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  useEffect(() => {
+    dragStartRef.current = dragStart;
+  }, [dragStart]);
+
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
+  useEffect(() => {
+    const mapEl = mapRef.current;
+    if (!mapEl) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 1) {
+        e.preventDefault();
+        setIsDragging(true);
+        setDragStart({ x: e.touches[0].clientX - panRef.current.x, y: e.touches[0].clientY - panRef.current.y });
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isDraggingRef.current || e.touches.length !== 1) return;
+      e.preventDefault();
+      setPan({
+        x: e.touches[0].clientX - dragStartRef.current.x,
+        y: e.touches[0].clientY - dragStartRef.current.y
+      });
+    };
+
+    const handleTouchEnd = () => {
+      setIsDragging(false);
+    };
+
+    mapEl.addEventListener("touchstart", handleTouchStart, { passive: false });
+    mapEl.addEventListener("touchmove", handleTouchMove, { passive: false });
+    mapEl.addEventListener("touchend", handleTouchEnd, { passive: false });
+
+    return () => {
+      mapEl.removeEventListener("touchstart", handleTouchStart);
+      mapEl.removeEventListener("touchmove", handleTouchMove);
+      mapEl.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, []);
+
   // Keep Primary destination (destA) in sync with the global store travel base
   useEffect(() => {
     setDestA(currentTripLocation);
@@ -1005,6 +1058,7 @@ export const ItineraryView: React.FC = () => {
             {/* Highly Interactive Vector SVG Radar Map representing origin, destination and itinerary checkpoints */}
             <div 
               id="interactive-radar-map-box"
+              ref={mapRef}
               className="w-full h-80 rounded-2xl bg-stone-950 border border-stone-850 relative overflow-hidden select-none cursor-grab active:cursor-grabbing group shadow-inner font-mono"
               onMouseDown={(e) => {
                 setIsDragging(true);
@@ -1019,20 +1073,6 @@ export const ItineraryView: React.FC = () => {
               }}
               onMouseUp={() => setIsDragging(false)}
               onMouseLeave={() => setIsDragging(false)}
-              onTouchStart={(e) => {
-                if (e.touches.length === 1) {
-                  setIsDragging(true);
-                  setDragStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y });
-                }
-              }}
-              onTouchMove={(e) => {
-                if (!isDragging || e.touches.length !== 1) return;
-                setPan({
-                  x: e.touches[0].clientX - dragStart.x,
-                  y: e.touches[0].clientY - dragStart.y
-                });
-              }}
-              onTouchEnd={() => setIsDragging(false)}
             >
               {/* Map SVG container transform group - Rendered first with z-10 to stay under HUD elements */}
               <div 

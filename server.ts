@@ -528,167 +528,284 @@ app.post("/api/policy-chat", async (req, res) => {
   }
 });
 
-// 3. Generate travel itinerary (Structured)
+// 3. Generate travel itinerary (Structured Multi-Layered Hierarchical Agentic Architecture)
 app.post("/api/generate-itinerary", async (req, res) => {
   const { destination, days = 9, baseLocation, vibe = "Mountains", isLuxury = false, budgetLevel = 2 } = req.body;
 
-  const resolvedDestination = destination || "";
-  
+  const resolvedDestination = destination || "Goa";
+  const resolvedBaseLocation = baseLocation || "Delhi";
+  const resolvedDays = Math.min(14, Math.max(1, parseInt(days) || 9));
+
   const ai = getGeminiClient();
 
   if (!ai) {
     // Elegant dynamic budget-aware fallback itinerary structured response
     console.log(`[ZenPlan] Sandbox fallback logic triggered for travel itinerary. Level: ${budgetLevel}`);
-    
-    let defaultDays = [];
-    
-    if (budgetLevel === 1) {
-      // Budget / economy fallback
-      defaultDays = [
-        {
-          dayNumber: 1,
-          dateStr: "Day 1",
-          title: "Thrifty Depot Transit & Settle",
-          activities: [
-            { id: "1a", time: "08:00 AM", title: `Arrive in ${resolvedDestination}`, description: "Local bus transfer arranged from the regional depot with gorgeous valley views.", category: "Morning", icon: "flight_land" },
-            { id: "1b", time: "01:00 PM", title: "Cozy Backpacker Hostel", description: "Settle into a neat, shared bunk cabin or budget guesthouse with community self-cook kitchens.", category: "Afternoon", icon: "hotel" },
-            { id: "1c", time: "06:30 PM", title: "Street Food Crawl", description: "Sample steaming hot parottas, momos, and hot spiced cardamom chai at nominal rates.", category: "Evening", icon: "restaurant" }
-          ]
-        },
-        {
-          dayNumber: 2,
-          dateStr: "Day 2",
-          title: "Free Nature Vibe Trails",
-          activities: [
-            { id: "2a", time: "08:30 AM", title: "Self-Brewed Local Drip Tea", description: "Learn local brewing methods with budget self-pack accessories.", category: "Morning", icon: "local_cafe" },
-            { id: "2b", time: "02:00 PM", title: "DIY Slopes Trek", description: "Trek up public ridge trails overlooking deep emerald peaks with self-packed standard trail lunches.", category: "Afternoon", icon: "landscape" },
-            { id: "2c", time: "06:30 PM", title: "Backpacker Circle Bonfire", description: "Join open hearth fires, swapping routes and regional stories with fellow budget searchers.", category: "Evening", icon: "restaurant" }
-          ]
-        }
-      ];
-    } else if (budgetLevel === 3) {
-      // Luxury / five-star fallback
-      defaultDays = [
-        {
-          dayNumber: 1,
-          dateStr: "Day 1",
-          title: "Elite Runway Escort & Private Villa",
-          activities: [
-            { id: "1a", time: "08:00 AM", title: `First-Class Airport Welcome`, description: `VIP runway assistance to a private chauffeur-driven luxury SUV stocked with cold towels and gourmet snacks towards ${resolvedDestination}.`, category: "Morning", icon: "flight_land" },
-            { id: "1b", time: "01:00 PM", title: "Helipool Villa Settle", description: "Check into your high-end woodland villa equipped with a heated infinity-edge plunge pool and sensory aroma steam baths.", category: "Afternoon", icon: "hotel" },
-            { id: "1c", time: "06:30 PM", title: "Sommelier Dusk Reception", description: "Exclusive champagne toast curated by the cellarmaster overlooking sunset clouds.", category: "Evening", icon: "restaurant" }
-          ]
-        },
-        {
-          dayNumber: 2,
-          dateStr: "Day 2",
-          title: "Helicopter Peaks & Glass Observatory Dine",
-          activities: [
-            { id: "2a", time: "08:30 AM", title: "Artisanal Butler Room Service", description: "Fresh morning single-origin estate coffee accompanied by signature direct-from-oven pastries.", category: "Morning", icon: "local_cafe" },
-            { id: "2b", time: "02:00 PM", title: "Private helicopter Sightseeing", description: "Exhilarating helicopter flight tour soaring above jagging snowy summits with landing rights for panoramic peak-side high teas.", category: "Afternoon", icon: "landscape" },
-            { id: "2c", time: "06:30 PM", title: "Glass Roof degustation Menu", description: "Multi-course premium local fusion dinner served under architectural glass dome with individual live violin backdrops.", category: "Evening", icon: "restaurant" }
-          ]
-        }
-      ];
-    } else {
-      // Mid-Range standard fallback
-      defaultDays = [
-        {
-          dayNumber: 1,
-          dateStr: "Day 1",
-          title: "Cab Pickup & Timber Cottage Layout",
-          activities: [
-            { id: "1a", time: "08:00 AM", title: `Pre-paid Transit Settle`, description: `Comfortable airport sedan pickup arranged with direct transfer to ${resolvedDestination}.`, category: "Morning", icon: "flight_land" },
-            { id: "1b", time: "01:00 PM", title: "Warm Forest Cottage", description: "Check-in to your comfortable individual timber cottage with direct garden layouts.", category: "Afternoon", icon: "hotel" },
-            { id: "1c", time: "06:30 PM", title: "Scenic Ridge Sunset", description: "Savor spiced hot tea at a scenic viewpoint cafe while watching the sunset colors.", category: "Evening", icon: "restaurant" }
-          ]
-        },
-        {
-          dayNumber: 2,
-          dateStr: "Day 2",
-          title: "Guided Forest Trails & Cozy Hearth Dining",
-          activities: [
-            { id: "2a", time: "08:30 AM", title: "Fresh Coffee Brewing", description: "Fresh morning drip espresso matching your quiet retreat guidelines.", category: "Morning", icon: "local_cafe" },
-            { id: "2b", time: "02:00 PM", title: "Guided Valley Trek", description: vibe.includes("Mountains") ? "Enjoy beautiful forest tours around pine-covered ridges with a local naturalist." : "Explore historical architecture and sacred regional monuments.", category: "Afternoon", icon: vibe.includes("Mountains") ? "landscape" : "temple_hindu" },
-            { id: "2c", time: "06:30 PM", title: "Fireside Dining Room", description: "Warm dining inside comfortable wood-paneled local establishment.", category: "Evening", icon: "restaurant" }
-          ]
-        }
-      ];
-    }
-
-    return res.json({ days: defaultDays, note: `Loaded dynamic ${isLuxury ? "luxury" : "standard"} matrix.` });
+    return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
   }
 
   try {
-    const budgetTierText = budgetLevel === 3 ? "Luxury / Elite five-star experience with helicopter rides, gourmet Michelin-level dining, and chauffeured service" : budgetLevel === 1 ? "Budget / Economy experience prioritizing hostels, public transport, free trails, and local street stalls" : "Standard / Mid-Range experience with comfortable cottages, cozy cafes, pre-paid private cabs, and guided walks";
-    
-    const prompt = `Generate an hour-by-hour travel itinerary timeline for a trip to "${resolvedDestination}" for ${days} days. 
-    User current base location is "${baseLocation}".
-    Preffered atmosphere / Travel vibe: "${vibe}".
-    Budget level: "${budgetTierText}".
-    
-    Please return your response in structured JSON with high-quality, fun specific corporate wellness activities (maximum relaxation, minimum leaves) styled perfectly to fit this budget level.`;
+    console.log(`[ZenPlan agent] Starting Multi-Layer Agentic Generation for: ${resolvedDestination} / Base: ${resolvedBaseLocation} / Vibe: ${vibe} / Days: ${resolvedDays} / Budget: ${budgetLevel}`);
 
-    const response = await ai.models.generateContent({
+    // ==========================================
+    // LAYER 1: Gateway Node (Intent Parsing & Normalization)
+    // ==========================================
+    const gatewayPrompt = `Analyze this travel request:
+- Destination: "${resolvedDestination}"
+- Days: ${resolvedDays}
+- Base Location: "${resolvedBaseLocation}"
+- Vibe: "${vibe}"
+- Budget Level: ${budgetLevel}
+
+Identify if it's a valid travel/wellness query. If it is, output the normalized parameters as a JSON object of this structure:
+{
+  "isValid": true,
+  "normalizedDestination": "Title Case Destination Name",
+  "normalizedBaseLocation": "Title Case Base Name",
+  "vibe": "vibe",
+  "days": number,
+  "budgetLevel": number
+}
+If the destination name is invalid, gibberish, empty, or dangerous, return:
+{ "isValid": false }
+Return ONLY raw JSON, do not wrap in markdown quotes.`;
+
+    const gatewayResponse = await ai.models.generateContent({
       model: "gemini-3.5-flash",
-      contents: prompt,
+      contents: gatewayPrompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            days: {
-              type: Type.ARRAY,
-              description: "Array of timeline days ordered",
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  dayNumber: { type: Type.INTEGER },
-                  dateStr: { type: Type.STRING, description: "Formatted day title e.g. Oct 12" },
-                  title: { type: Type.STRING, description: "Brief highlight style name e.g. Local Flavors" },
-                  activities: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        id: { type: Type.STRING },
-                        time: { type: Type.STRING, description: "e.g. 09:00 AM" },
-                        title: { type: Type.STRING, description: "Name of the item" },
-                        description: { type: Type.STRING, description: "Action details" },
-                        category: { type: Type.STRING, description: "Must be exactly 'Morning', 'Afternoon', or 'Evening'" },
-                        icon: { type: Type.STRING, description: "Material Icons glyph name e.g. restaurant, local_cafe, hotel, landscape, flight_land" }
-                      },
-                      required: ["id", "time", "title", "description", "category", "icon"]
-                    }
-                  }
-                },
-                required: ["dayNumber", "dateStr", "title", "activities"]
-              }
-            }
-          },
-          required: ["days"]
-        },
-        temperature: 0.3
+        temperature: 0.1,
       }
     });
 
-    const resultText = response.text;
-    if (resultText) {
-      const parsed = JSON.parse(resultText);
-      return res.json(parsed);
-    } else {
-      throw new Error("No response text returned from Gemini API");
+    let gatewayResult = { isValid: true, normalizedDestination: resolvedDestination, normalizedBaseLocation: resolvedBaseLocation, vibe, days: resolvedDays, budgetLevel };
+    try {
+      if (gatewayResponse.text) {
+        const parsedG = JSON.parse(gatewayResponse.text.trim());
+        if (parsedG.isValid === false) {
+          console.warn("[ZenPlan agent] Gateway rejected itinerary query as invalid or gibberish. Utilizing standard fallbacks.");
+          return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
+        }
+        gatewayResult = { ...gatewayResult, ...parsedG };
+      }
+    } catch (gErr) {
+      console.warn("[ZenPlan agent] Gateway JSON parsing failed, using request defaults:", gErr);
     }
-  } catch (error: any) {
-    if (error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("UNAVAILABLE") || error?.status === "UNAVAILABLE" || error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("RESOURCE_EXHAUSTED") || error?.status === "RESOURCE_EXHAUSTED") {
-      console.log("[ZenPlan] Returning fallback for itinerary due to API availability or quota limits. (Graceful fallback)");
+
+    const finalDest = gatewayResult.normalizedDestination;
+    const finalBase = gatewayResult.normalizedBaseLocation;
+
+    // ==========================================
+    // LAYER 2: Divisional Management Router (Parallel API Ingestion)
+    // ==========================================
+    console.log(`[ZenPlan agent] Divisional Management: Dispatching parallel deterministic data fetches for geocode, weather, events...`);
+
+    let lat = 15.2993; // Default Goa
+    let lon = 74.1240; // Default Goa
+    if (finalDest.toLowerCase().includes("manali")) {
+      lat = 32.2396; lon = 77.1887;
+    } else if (finalDest.toLowerCase().includes("delhi")) {
+      lat = 28.6139; lon = 77.2090;
+    } else if (finalDest.toLowerCase().includes("shimla")) {
+      lat = 31.1048; lon = 77.1734;
+    } else if (finalDest.toLowerCase().includes("ooty")) {
+      lat = 11.4102; lon = 76.6950;
+    } else if (finalDest.toLowerCase().includes("kerala") || finalDest.toLowerCase().includes("munnar")) {
+      lat = 10.0889; lon = 77.0595;
+    } else if (finalDest.toLowerCase().includes("jaipur")) {
+      lat = 26.9124; lon = 75.7873;
+    }
+
+    let rawWeatherData: any = null;
+
+    try {
+      // 1. Geocoding Engine via Nominatim API (with User-Agent)
+      const geoUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(finalDest)}&format=json&limit=1`;
+      const geoRes = await fetch(geoUrl, {
+        headers: { "User-Agent": "ZenPlanTravelWizard/1.0 (amandeep101003@gmail.com)" }
+      });
+      if (geoRes.ok) {
+        const geoJSON: any = await geoRes.json();
+        if (geoJSON && geoJSON[0]) {
+          lat = parseFloat(geoJSON[0].lat);
+          lon = parseFloat(geoJSON[0].lon);
+          console.log(`[ZenPlan agent] Nominatim geocoding succeeded for "${finalDest}": Lat=${lat}, Lon=${lon}`);
+        }
+      }
+    } catch (geoErr: any) {
+      console.warn("[ZenPlan agent] Nominatim fetching failed, using default coordinates:", geoErr.message);
+    }
+
+    // Call Meteorology API
+    try {
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`;
+
+      const weatherRes = await fetch(weatherUrl);
+
+      if (weatherRes.ok) {
+        rawWeatherData = await weatherRes.json();
+        console.log("[ZenPlan agent] Weather API loaded successfully.");
+      } else {
+        console.warn("[ZenPlan agent] Weather API fetch failed.");
+      }
+    } catch (parallelErr: any) {
+      console.warn("[ZenPlan agent] External API fetch failed:", parallelErr.message);
+    }
+
+    // ==========================================
+    // LAYER 3: Cognitive Specialist Workers (Parallel LLM Inferences)
+    // ==========================================
+    console.log(`[ZenPlan agent] Dispatching parallel Specialist workers via Promise.all...`);
+
+    const weatherPrompt = `You are a professional Meteorology & Environmental Analyst.
+Given Raw Weather Forecast for latitude/longitude: ${lat}/${lon}:
+${rawWeatherData ? JSON.stringify(rawWeatherData.daily || rawWeatherData) : "No raw data available"}
+Analyze this forecast for destination: "${finalDest}" over a period of ${resolvedDays} days. 
+Determine:
+1. Overall climatology (sunny, rainy, sub-zero, humid, chilly etc.).
+2. Vibe compatibility: is it suitable for a '${vibe}' travel itinerary?
+3. Daily direct weather summaries and actionable micro-directives (e.g. bring warm liners, pack umbrellas, optimal morning trek windows).
+Output ONLY brief, high-impact information in a structured JSON schema:
+{
+  "summary": "climatology summary",
+  "vibeSuitability": "rating out of 5",
+  "directives": ["directive 1", "directive 2", "directive 3"]
+}
+Do not write conversational introductory text. Output valid raw JSON.`;
+
+    const eventPrompt = `You are an Event Sniper. Your objective is to find real, live events, festivals, concerts, or local experiences in "${finalDest}".
+Target, evaluate, and extract the best live sports matches, music concerts, theatrical gigs, or local festivals that align with a '${vibe}' vibe and a budget level of ${budgetLevel} (1=budget, 2=mid-range, 3=luxury).
+Use Google Search Grounding to locate 3-4 highly plausible and actual local events occurring near or in ${finalDest}.
+Heuristic rules:
+- Provide exact names, dates, locations, times, and brief details for REAL events if possible; otherwise highly representative seasonal events in the region.
+Return ONLY a structured JSON output:
+{
+  "recommendedEvents": [
+    { "name": "Event Name", "date": "Date of event", "time": "Time of event", "description": "Short matching details", "priceCategory": "economy/mid/luxury" }
+  ]
+}
+Return only raw JSON.`;
+
+    const foodPrompt = `You are an elite Michelin-starred Culinary Guide. 
+Develop a curated gastronomy guide for "${finalDest}" catering to a budget level of ${budgetLevel} (1=budget street food/local dhabas, 2=mid-range bistros/cozy gardens, 3=luxury fine dining/spectacular view reservation venues) and matching a vibe of '${vibe}'.
+Recommend 3-4 top food establishments, signature local dishes to sample, and coffee lounges.
+Return ONLY structured JSON:
+{
+  "culinaryHotspots": [
+    { "establishmentName": "Name", "specialty": "Traditional signature dish", "description": "Atmospheric review", "priceRange": "₹/₹₹/₹₹₹" }
+  ]
+}
+Return only raw JSON.`;
+
+    const routePrompt = `You are a Geospatial Sequence Router.
+Origin base: "${finalBase}".
+Destination: "${finalDest}" (coordinates: ${lat}, ${lon}).
+Optimize the travel routing paths for the trip:
+1. Long-distance transition routes from origin to destination (e.g., flight alignments, high-way roadways, rail links) optimized for budget level ${budgetLevel}.
+2. Intraday local transport options (scooter rentals, auto rickshaw rates, pre-paid private cab alignments) inside the destination.
+Return ONLY structured JSON:
+{
+  "transitRoute": { "type": "flight/rail/drive", "detail": "Transition details from base to dest" },
+  "localTransit": ["transport tip 1", "transport tip 2"]
+}
+Return only raw JSON.`;
+
+    const [weatherWorkerRes, eventWorkerRes, foodWorkerRes, routeWorkerRes] = await Promise.all([
+      ai.models.generateContent({ model: "gemini-3.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
+      ai.models.generateContent({ model: "gemini-3.5-flash", contents: eventPrompt, config: { responseMimeType: "application/json", temperature: 0.3, tools: [{ googleSearch: {} }] } }),
+      ai.models.generateContent({ model: "gemini-3.5-flash", contents: foodPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
+      ai.models.generateContent({ model: "gemini-3.5-flash", contents: routePrompt, config: { responseMimeType: "application/json", temperature: 0.3 } })
+    ]);
+
+    const weatherWorkerOutput = weatherWorkerRes.text || "{}";
+    const eventWorkerOutput = eventWorkerRes.text || "{}";
+    const foodWorkerOutput = foodWorkerRes.text || "{}";
+    const routeWorkerOutput = routeWorkerRes.text || "{}";
+
+    console.log("[ZenPlan agent] Layer 3 specialist workers completed compilation successfully.");
+
+    // ==========================================
+    // LAYER 4: Editor-in-Chief (Quality Synthesis, Google Search Grounding & Schema Validation)
+    // ==========================================
+    console.log("[ZenPlan agent] Layer 4: Booting Editor-in-Chief summary engine (Gemini 2.5 Pro with Search Grounding)...");
+
+    const eicPrompt = `You are the Editor-in-Chief of a premium, hyper-personalized corporate wellness travel planner. 
+Your objective is to compile the reports from your four specialized field workers into a seamless, hour-by-hour travel timeline for a ${resolvedDays}-day itinerary in "${finalDest}" (Base location: "${finalBase}", Vibe: "${vibe}", Budget level ${budgetLevel}).
+
+Below are the raw files submitted by your specialist workers:
+=== WEATHER ANALYST REPORT ===
+${weatherWorkerOutput}
+
+=== EVENT SNIPER TARGET LIST ===
+${eventWorkerOutput}
+
+=== CULINARY MATRIX ===
+${foodWorkerOutput}
+
+=== GEOSPATIAL PATH ANALYSIS ===
+${routeWorkerOutput}
+
+Task directives:
+1. Synthesize a unified, consecutive travel schedule for exactly ${resolvedDays} days. Ensure every single day has a clear dayNumber, dayTitle (brief highlight), and exactly 3 activities (one "Morning", one "Afternoon", and one "Evening") mapped to appropriate timeline slots.
+2. Ensure you naturally fuse the transit routes, culinary recommendations, events, and weather protection directives directly into the activities' titles and descriptions.
+3. Keep the pricing and experience level perfectly in sync with budget level ${budgetLevel} (1=Budget/Economy, 2=Mid-Range, 3=Luxury/Five-Star).
+4. Utilize Google Search grounding to verify the general names and accuracy of local attractions or events in "${finalDest}".
+5. Ensure the final response is generated in strict conformance to the requested JSON layout schema.
+
+Schema contracts to follow:
+{
+  "days": [
+    {
+      "dayNumber": number,
+      "dateStr": "e.g. Day 1, Day 2",
+      "title": "Day Highlight Title",
+      "activities": [
+        {
+          "id": "unique string token e.g. 1a, 1b",
+          "time": "e.g. 08:30 AM",
+          "title": "Activity name",
+          "description": "Explanatory activity description incorporating weather/transit/culinary guides",
+          "category": "Exactly 'Morning', 'Afternoon', or 'Evening'",
+          "icon": "Material Icon name (e.g. flight_land, hotel, restaurant, landscape, local_cafe)"
+        }
+      ]
+    }
+  ],
+  "note": "A summary note about the weather, transit, and features used of the trip"
+}
+
+Do not add outer Markdown blocks like \`\`\`json. Return pure JSON. Ensure it parses cleanly.`;
+
+    const eicResponse = await ai.models.generateContent({
+      model: "gemini-2.5-pro",
+      contents: eicPrompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        temperature: 0.4
+      }
+    });
+
+    const finalResultStr = eicResponse.text || "";
+    const jsonMatch = finalResultStr.match(/\{.*\}/s) || [finalResultStr];
+    let cleanedJson = jsonMatch[0].replace(/```json/g, '').replace(/```/g, '').trim();
+
+    try {
+      const finalItinerary = JSON.parse(cleanedJson);
+      if (finalItinerary.days && Array.isArray(finalItinerary.days) && finalItinerary.days.length > 0) {
+        console.log(`[ZenPlan agent] Success! Itinerary synthesis complete for "${finalDest}". ${finalItinerary.days.length} days successfully structured.`);
+        return res.json(finalItinerary);
+      } else {
+        throw new Error("Invalid itinerary structure or empty days array from EIC model.");
+      }
+    } catch (parseError: any) {
+      console.warn("[ZenPlan agent] Editor-in-Chief JSON validation failed. Initiating unbreakable fallback matrix:", parseError.message);
       return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
     }
-    console.error("[ZenPlan Server] Gemini Travel Itinerary Generator Error:", error);
-    return res.status(500).json({
-      error: "Error generating travel schedule dynamically.",
-      details: error.message
-    });
+  } catch (outerError: any) {
+    console.error("[ZenPlan Server] Outer handler exception inside Multi-Agent Itinerary Generator:", outerError);
+    return res.json(getFallbackItineraryMatrix(resolvedDestination, vibe, isLuxury, budgetLevel));
   }
 });
 
