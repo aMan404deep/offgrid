@@ -18,6 +18,7 @@ interface LeaveState {
   isTripLocked: boolean;
   activeStreakDays: string[]; // e.g. ["2026-10-10", ...]
   itinerary: ItineraryDay[];
+  weatherForecast: any | null;
   isGeneratingItinerary: boolean;
   budgetForecast: BudgetForecast;
   liveDeals: LiveDealsData | null;
@@ -350,6 +351,7 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
       "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"
     ], // 9 days off (Oct 10 Saturday to Oct 18 Sunday), only requiring 2 days of real Earned Leaves
     itinerary: getDynamicFallbackItinerary("", 2),
+    weatherForecast: null,
     isGeneratingItinerary: false,
     budgetForecast: {
       flights: 14500,
@@ -609,14 +611,14 @@ export const useLeaveStore = create<LeaveState>((set, get) => {
 
         const data = await response.json();
         if (data && data.days) {
-          set({ itinerary: data.days, isGeneratingItinerary: false });
+          set({ itinerary: data.days, weatherForecast: data.weatherForecast || null, isGeneratingItinerary: false });
         } else {
           throw new Error("Invalid structure returned");
         }
       } catch (err) {
         console.warn("Using high-fidelity pre-compiled recovery planner matrices (API key bypass).");
         const customizedDays = getDynamicFallbackItinerary(destination, get().preferences.budgetLevel);
-        set({ itinerary: customizedDays, isGeneratingItinerary: false });
+        set({ itinerary: customizedDays, weatherForecast: null, isGeneratingItinerary: false });
       }
     },
 

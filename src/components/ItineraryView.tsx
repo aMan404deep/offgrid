@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
 import { Download, MapPin, Calendar, Compass, ShieldAlert, Sparkles, AlertCircle, DollarSign, Lock, Play, RefreshCw, Layers, GitCompare, ArrowRightLeft, ZoomIn, ZoomOut, RotateCcw, Plane, Car, Bus, Train, Info } from "lucide-react";
 import { LiveDealsCard } from "./LiveDealsCard";
+import { WeatherOverlay } from "./WeatherOverlay";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { getCoordsForName, getTransitDetails } from "../utils/transit";
@@ -73,6 +74,7 @@ export const ItineraryView: React.FC = () => {
   const {
     currentTripLocation,
     itinerary,
+    weatherForecast,
     isGeneratingItinerary,
     generateItinerary,
     budgetForecast,
@@ -1328,6 +1330,9 @@ export const ItineraryView: React.FC = () => {
                   <RotateCcw className="w-4 h-4" />
                 </button>
               </div>
+
+              {/* Weather Overlay for 5-day forecast inline positioned */}
+              <WeatherOverlay forecast={weatherForecast} />
             </div>
           </div>
 

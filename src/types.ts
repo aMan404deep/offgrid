@@ -41,6 +41,13 @@ export interface ItineraryDay {
   activities: ItineraryItem[];
 }
 
+export interface GeneratedItinerary {
+  days: ItineraryDay[];
+  note: string;
+  weatherForecast?: any;
+}
+
+
 export interface BudgetForecast {
   flights: number;
   accommodation: number;

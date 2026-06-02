@@ -686,6 +686,16 @@ app.post("/api/generate-itinerary", async (req, res) => {
       const finalItinerary = JSON.parse(cleanedJson);
       if (finalItinerary.days && Array.isArray(finalItinerary.days) && finalItinerary.days.length > 0) {
         console.log(`[ZenPlan agent] Success! Itinerary synthesis complete for "${finalDest}". ${finalItinerary.days.length} days successfully structured.`);
+        if (rawWeatherData && rawWeatherData.daily && rawWeatherData.daily.time) {
+          // Format the weather forecast to map 5 days
+          const weatherForecast = rawWeatherData.daily.time.slice(0, 5).map((dateStr: string, idx: number) => ({
+            date: dateStr,
+            maxTemp: rawWeatherData.daily.temperature_2m_max[idx],
+            minTemp: rawWeatherData.daily.temperature_2m_min[idx],
+            code: rawWeatherData.daily.weather_code[idx]
+          }));
+          finalItinerary.weatherForecast = weatherForecast;
+        }
         return res.json(finalItinerary);
       } else {
         throw new Error("Invalid itinerary structure or empty days array from EIC model.");
