@@ -354,7 +354,7 @@ export const DashboardView: React.FC = () => {
               {/* Main Chart Column */}
               <div id="leave-chart-container" className="lg:col-span-8 space-y-4">
                 <div className="w-full h-80 min-h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
                     <BarChart
                       data={leaveChartData}
                       layout="vertical"
@@ -623,7 +623,7 @@ export const DashboardView: React.FC = () => {
 
         {/* Recharts container styled as custom grid */}
         <div className="w-full h-72">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={288}>
             <AreaChart data={dynamicGraphData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
               <XAxis dataKey="name" stroke="#897365" fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke="#897365" fontSize={10} tickLine={false} axisLine={false} domain={[0, 100]} />

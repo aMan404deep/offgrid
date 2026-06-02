@@ -718,7 +718,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
 
     const [weatherWorkerRes, eventWorkerRes, foodWorkerRes, routeWorkerRes] = await Promise.all([
       generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
-      generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: eventPrompt, config: { responseMimeType: "application/json", temperature: 0.3, tools: [{ googleSearch: {} }] } }, true),
+      generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: eventPrompt, config: { temperature: 0.3, tools: [{ googleSearch: {} }] } }, true),
       generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: foodPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
       generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: routePrompt, config: { responseMimeType: "application/json", temperature: 0.3 } })
     ]);
@@ -745,7 +745,6 @@ app.post("/api/generate-itinerary", async (req, res) => {
       contents: eicPrompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
         temperature: 0.4
       }
     }, true);
