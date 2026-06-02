@@ -6,6 +6,7 @@ import { WeatherOverlay } from "./WeatherOverlay";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { getCoordsForName, getTransitDetails } from "../utils/transit";
+import { generateICS, downloadICS } from "../utils/calendarExport";
 
 // Helper to estimate budget & leave days for any destination deterministically based on its name hash
 function getDestinationStats(name: string, budgetLevel: number, prioritizeLowestCost: boolean) {
@@ -338,6 +339,13 @@ export const ItineraryView: React.FC = () => {
     }
   };
 
+  const handleExportCalendar = () => {
+    if (!itinerary || itinerary.length === 0) return;
+    const originLocation = user?.location || "Delhi";
+    const icsContent = generateICS(itinerary, currentTripLocation, originLocation);
+    downloadICS(icsContent, `OffGrid_${currentTripLocation}_Sync.ics`);
+  };
+
   return (
     <div id="itinerary-wrapper" className="space-y-8 animate-fade-in font-sans pb-16 select-none">
       
@@ -426,19 +434,32 @@ export const ItineraryView: React.FC = () => {
           </button>
         </form>
         
-        <button
-          type="button"
-          onClick={handleDownloadPDF}
-          disabled={isDownloading || isGeneratingItinerary}
-          className="px-4 py-2.5 bg-white text-stone-900 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0 w-full lg:w-auto"
-        >
-          {isDownloading ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Download className="w-4 h-4" />
-          )}
-          <span>Download PDF</span>
-        </button>
+        <div className="flex gap-2 w-full lg:w-auto">
+          <button
+            type="button"
+            onClick={handleDownloadPDF}
+            disabled={isDownloading || isGeneratingItinerary}
+            className="flex-1 lg:flex-none px-4 py-2.5 bg-white text-stone-900 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+          >
+            {isDownloading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span className="whitespace-nowrap">Download PDF</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleExportCalendar}
+            disabled={isGeneratingItinerary}
+            className="flex-1 lg:flex-none px-4 py-2.5 bg-white text-stone-900 border border-stone-200 hover:border-stone-300 hover:bg-stone-50 active:translate-y-0.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            title="Download .ics for Google Calendar or Outlook"
+          >
+            <Calendar className="w-4 h-4" />
+            <span className="whitespace-nowrap">Export to Calendar</span>
+          </button>
+        </div>
       </div>
       </div>
 
@@ -1078,7 +1099,7 @@ export const ItineraryView: React.FC = () => {
             >
               {/* Map SVG container transform group - Rendered first with z-10 to stay under HUD elements */}
               <div 
-                className="relative z-10 w-full h-full"
+                className="absolute z-20 w-full h-full inset-0"
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transformOrigin: "center center",
@@ -1259,7 +1280,7 @@ export const ItineraryView: React.FC = () => {
               </div>
 
               {/* Absolutes for Compass rose & status logs inside map */}
-              <div className="absolute top-3 right-3 pointer-events-none z-30 flex flex-col items-end gap-1">
+              <div className="absolute top-3 right-3 pointer-events-none z-50 flex flex-col items-end gap-1">
                 <div className="w-10 h-10 border border-stone-800 rounded-full flex items-center justify-center bg-stone-950/80 backdrop-blur-xs animate-pulse-slow">
                   <Compass className="w-5 h-5 text-[#944a00]/70 animate-[spin_20s_linear_infinite]" />
                 </div>
@@ -1267,7 +1288,7 @@ export const ItineraryView: React.FC = () => {
               </div>
 
               {/* Dynamic bottom telemetry HUD console */}
-              <div className="absolute bottom-3 left-3 right-3 z-40 bg-stone-950/85 backdrop-blur-md rounded-xl p-2.5 border border-[#eae7e7]/10 flex items-center justify-between text-[10px] gap-2">
+              <div className="absolute bottom-3 left-3 right-3 z-50 bg-stone-950/85 backdrop-blur-md rounded-xl p-2.5 border border-[#eae7e7]/10 flex items-center justify-between text-[10px] gap-2">
                 {hoveredNode ? (
                   <div className="flex-1 min-w-0 text-left">
                     <div className="flex items-center gap-1">

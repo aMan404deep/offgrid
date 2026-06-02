@@ -1,5 +1,6 @@
 import React from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
+import { REGIONAL_HOLIDAYS_2026 } from "../data/leavePolicy";
 import { 
   AreaChart, 
   Area, 
@@ -43,6 +44,95 @@ export const DashboardView: React.FC = () => {
 
   const [chartType, setChartType] = React.useState<'stacked' | 'grouped'>('stacked');
 
+  const [isOptimizing, setIsOptimizing] = React.useState(false);
+  const [optimizedSuggestion, setOptimizedSuggestion] = React.useState<{
+    title: string;
+    description: React.ReactNode;
+    days: number;
+    leavesUsed: number;
+    dates: string;
+  } | null>(null);
+
+  const handleOptimizeRest = () => {
+    setIsOptimizing(true);
+    
+    setTimeout(() => {
+      let bestWindow = { leavesNeeded: 999, start: new Date(), end: new Date(), days: 0, holidayNames: [] as string[] };
+      const regionalHolidays = REGIONAL_HOLIDAYS_2026.filter((h) => h.regions.includes(user.location) && h.type === 'Fixed');
+      
+      const year = 2026;
+      const startDate = new Date(year, 0, 1);
+      const endDate = new Date(year, 11, 31);
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        if (d.getDay() !== 6) continue; // Start on a Saturday
+        
+        for (let length of [4, 5, 9, 10, 11]) { // E.g., 9-day window (Sat to next Sun)
+          const wStart = new Date(d);
+          const wEnd = new Date(wStart);
+          wEnd.setDate(wStart.getDate() + length - 1);
+          
+          let leavesNeeded = 0;
+          let hNames = new Set<string>();
+          for (let curr = new Date(wStart); curr <= wEnd; curr.setDate(curr.getDate() + 1)) {
+            const dow = curr.getDay();
+            const dateStr = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
+            const isWeekend = dow === 0 || dow === 6;
+            const hol = regionalHolidays.find(h => h.date === dateStr);
+            if (hol) hNames.add(hol.name);
+            
+            if (!isWeekend && !hol) {
+              leavesNeeded++;
+            }
+          }
+          
+          if (hNames.size > 0 && leavesNeeded > 0 && leavesNeeded <= leaveBalances.earnedLeave) {
+            const currentRatio = bestWindow.leavesNeeded === 999 ? 0 : bestWindow.days / bestWindow.leavesNeeded;
+            const newRatio = length / leavesNeeded;
+            
+            if (newRatio > currentRatio || (newRatio === currentRatio && length > bestWindow.days)) {
+              bestWindow = { 
+                 leavesNeeded, 
+                 start: new Date(wStart), 
+                 end: new Date(wEnd), 
+                 days: length, 
+                 holidayNames: Array.from(hNames) 
+              };
+            }
+          }
+        }
+      }
+
+      if (bestWindow.leavesNeeded !== 999) {
+        const formatOptions: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+        setOptimizedSuggestion({
+          title: "Strategic Holiday Bridge Found",
+          description: (
+            <span>
+              An optimal <strong className="text-white font-bold">{bestWindow.days}-day high-efficiency vacation window</strong> is available around the <span className="text-[#ffb783] font-semibold">{bestWindow.holidayNames.join(' & ')} Holidays</span>. By utilizing only <strong className="text-white">{bestWindow.leavesNeeded} Earned Leave{bestWindow.leavesNeeded > 1 ? 's' : ''}</strong> combined with fixed regional holidays and weekends, you unlock a continuous {bestWindow.days}-day active recovery sequence perfectly tailored for {user.location}.
+            </span>
+          ),
+          days: bestWindow.days,
+          leavesUsed: bestWindow.leavesNeeded,
+          dates: `${bestWindow.start.toLocaleDateString(undefined, formatOptions)} - ${bestWindow.end.toLocaleDateString(undefined, formatOptions)}`
+        });
+      } else {
+        setOptimizedSuggestion({
+          title: "Optimal Strategy Currently Unavailable",
+          description: (
+             <span>
+               No highly efficient bridge windows were found based on your current location ({user.location}) and leave balances. Try exploring a shorter micro-trip or check the calendar for floater holiday swaps.
+             </span>
+          ),
+          days: 0,
+          leavesUsed: 0,
+          dates: "Review Balance"
+        });
+      }
+      setIsOptimizing(false);
+    }, 1500);
+  };
+
   const handleExploreNudge = () => {
     generateItinerary(currentTripLocation);
     setTab("itinerary");
@@ -84,28 +174,53 @@ export const DashboardView: React.FC = () => {
         <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "16px 16px" }} />
         
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#944a00]/20 border border-[#944a00]/40 text-[10px] font-mono font-bold text-[#ffdcc5] uppercase tracking-wider">
-              <Sparkles className="w-3 h-3 text-[#ffb783]" />
-              <span>Smart Fatigue Analysis</span>
-            </div>
-            <h3 className="text-xl font-display font-black tracking-tight text-white leading-tight">Potential Fatigue Threshold Exceeded</h3>
-            <p className="text-[#e5e2e1] text-[12.5px] leading-relaxed font-normal">
-              An optimal <strong className="text-white font-bold">9-day high-efficiency vacation window</strong> is available during 
-              <span className="text-[#ffb783] font-semibold"> October Dussehra Holidays </span>. 
-              By utilizing only <strong className="text-white">2 Earned Leaves</strong> combined with fixed regional holidays, you unlock a continuous 9-day active recovery sequence automatically.
-            </p>
-          </div>
+          {!optimizedSuggestion ? (
+            <>
+              <div className="space-y-2.5 max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#944a00]/20 border border-[#944a00]/40 text-[10px] font-mono font-bold text-[#ffdcc5] uppercase tracking-wider">
+                  <Activity className="w-3 h-3 text-[#ffb783]" />
+                  <span>Leave Optimizer</span>
+                </div>
+                <h3 className="text-xl font-display font-black tracking-tight text-white leading-tight">Maximize your continuous time off</h3>
+                <p className="text-[#e5e2e1] text-[12.5px] leading-relaxed font-normal">
+                  Our system can analyze your current <strong className="text-white font-bold">{leaveBalances.earnedLeave} Earned Leaves</strong> and cross-reference them with regional public holidays to find the most efficient multi-day vacation windows.
+                </p>
+              </div>
 
-          <button
-            id="dashboard-btn-explore-nudge"
-            onClick={handleExploreNudge}
-            className="px-5 py-3 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start lg:self-auto cursor-pointer shadow-md active:translate-y-0.5 shrink-0"
-          >
-            <Compass className="w-4 h-4 text-white" />
-            <span>Auto-Generate {currentTripLocation} Blueprint</span>
-            <ArrowRight className="w-4 h-4 text-white" />
-          </button>
+              <button
+                id="btn-optimize-rest"
+                onClick={handleOptimizeRest}
+                disabled={isOptimizing}
+                className="px-5 py-3 bg-[#944a00] hover:bg-[#e67e22] disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start lg:self-auto cursor-pointer shadow-md active:translate-y-0.5 shrink-0"
+              >
+                {isOptimizing ? <RefreshCw className="w-4 h-4 text-white animate-spin" /> : <Sparkles className="w-4 h-4 text-white" />}
+                <span>{isOptimizing ? "Analyzing Calendar..." : "Optimize Rest Sequence"}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2.5 max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-[#944a00]/20 border border-[#944a00]/40 text-[10px] font-mono font-bold text-[#ffdcc5] uppercase tracking-wider">
+                  <Sparkles className="w-3 h-3 text-[#ffb783]" />
+                  <span>Smart Fatigue Analysis</span>
+                </div>
+                <h3 className="text-xl font-display font-black tracking-tight text-white leading-tight">{optimizedSuggestion.title}</h3>
+                <p className="text-[#e5e2e1] text-[12.5px] leading-relaxed font-normal">
+                  {optimizedSuggestion.description}
+                </p>
+              </div>
+
+              <button
+                id="dashboard-btn-explore-nudge"
+                onClick={handleExploreNudge}
+                className="px-5 py-3 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 self-start lg:self-auto cursor-pointer shadow-md active:translate-y-0.5 shrink-0"
+              >
+                <Compass className="w-4 h-4 text-white" />
+                <span>Auto-Generate {currentTripLocation} Blueprint</span>
+                <ArrowRight className="w-4 h-4 text-white" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -124,17 +239,30 @@ export const DashboardView: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
+          <div className="space-y-3">
+            <div className="flex items-baseline justify-between mb-1">
               <span className="text-3xl font-black text-[#1c1b1b] font-mono">{leaveBalances.earnedLeave}</span>
-              <span className="text-[10px] font-mono text-[#897365]">/ {leaveBalances.earnedLeaveMax} Max Pool</span>
+              <span className="text-[10px] font-mono text-[#897365]">Remaining Balance</span>
             </div>
-            {/* Standard Rounded fine progress bar */}
-            <div className="w-full h-2 bg-[#eae7e7] rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-[#944a00] to-[#e67e22] rounded-full" 
-                style={{ width: `${(leaveBalances.earnedLeave / leaveBalances.earnedLeaveMax) * 100}%` }}
-              />
+            
+            {/* Used vs Remaining Visual Progress Bar */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[10px] font-mono font-medium text-[#897365]">
+                <span>8 Used</span>
+                <span>{8 + leaveBalances.earnedLeave} Total</span>
+              </div>
+              <div className="w-full h-2.5 flex rounded-full overflow-hidden bg-[#eae7e7]">
+                <div 
+                  className="h-full bg-stone-500" 
+                  style={{ width: `${(8 / (8 + leaveBalances.earnedLeave)) * 100}%` }}
+                  title="Used Leaves"
+                />
+                <div 
+                  className="h-full bg-gradient-to-r from-[#944a00] to-[#e67e22]" 
+                  style={{ width: `${(leaveBalances.earnedLeave / (8 + leaveBalances.earnedLeave)) * 100}%` }}
+                  title="Remaining Leaves"
+                />
+              </div>
             </div>
           </div>
 

@@ -39,7 +39,7 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ forecast }) => {
   };
 
   return (
-    <div className="absolute top-16 right-3 pointer-events-auto z-40 bg-stone-950/85 backdrop-blur-md rounded-xl p-3 border border-[#eae7e7]/10 flex flex-col gap-2 shadow-2xl">
+    <div className="absolute top-16 right-3 pointer-events-auto z-50 bg-stone-950/85 backdrop-blur-md rounded-xl p-3 border border-[#eae7e7]/10 flex flex-col gap-2 shadow-2xl">
       <div className="flex items-center justify-between mb-1 gap-4">
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-[#00b05c] animate-pulse" />
