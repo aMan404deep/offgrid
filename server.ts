@@ -483,7 +483,7 @@ app.post("/api/policy-chat", async (req, res) => {
 
     // Perform the RAG call with system instruction including the entire Leave Policy
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: [
         ...formattedHistory,
         { role: "user", parts: [{ text: message }] }
@@ -571,7 +571,7 @@ If the destination name is invalid, gibberish, empty, or dangerous, return:
 Return ONLY raw JSON, do not wrap in markdown quotes.`;
 
     const gatewayResponse = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: gatewayPrompt,
       config: {
         responseMimeType: "application/json",
@@ -712,10 +712,10 @@ Return ONLY structured JSON:
 Return only raw JSON.`;
 
     const [weatherWorkerRes, eventWorkerRes, foodWorkerRes, routeWorkerRes] = await Promise.all([
-      ai.models.generateContent({ model: "gemini-3.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
-      ai.models.generateContent({ model: "gemini-3.5-flash", contents: eventPrompt, config: { responseMimeType: "application/json", temperature: 0.3, tools: [{ googleSearch: {} }] } }),
-      ai.models.generateContent({ model: "gemini-3.5-flash", contents: foodPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
-      ai.models.generateContent({ model: "gemini-3.5-flash", contents: routePrompt, config: { responseMimeType: "application/json", temperature: 0.3 } })
+      ai.models.generateContent({ model: "gemini-2.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
+      ai.models.generateContent({ model: "gemini-2.5-flash", contents: eventPrompt, config: { responseMimeType: "application/json", temperature: 0.3, tools: [{ googleSearch: {} }] } }),
+      ai.models.generateContent({ model: "gemini-2.5-flash", contents: foodPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
+      ai.models.generateContent({ model: "gemini-2.5-flash", contents: routePrompt, config: { responseMimeType: "application/json", temperature: 0.3 } })
     ]);
 
     const weatherWorkerOutput = weatherWorkerRes.text || "{}";
