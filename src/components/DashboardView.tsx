@@ -1,6 +1,18 @@
 import React from "react";
 import { useLeaveStore } from "../store/useLeaveStore";
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  Legend,
+  Cell
+} from "recharts";
 import { 
   Sparkles, 
   Calendar, 
@@ -10,12 +22,26 @@ import {
   ArrowRight, 
   RefreshCw,
   Clock,
-  Compass
+  Compass,
+  Plus,
+  Minus,
+  Activity,
+  CheckCircle2
 } from "lucide-react";
 
 // Mock data for Zen Graph (Stress/Work ratio vs Recovery days)
 export const DashboardView: React.FC = () => {
   const { user, leaveBalances, setTab, generateItinerary, currentTripLocation } = useLeaveStore();
+
+  // Interactive Calendar Year Leave Simulation & Optimizer state
+  const [simulatedLeaves, setSimulatedLeaves] = React.useState({
+    earnedLeave: 0,
+    cl: 0,
+    sl: 0,
+    compOff: 0
+  });
+
+  const [chartType, setChartType] = React.useState<'stacked' | 'grouped'>('stacked');
 
   const handleExploreNudge = () => {
     generateItinerary(currentTripLocation);
@@ -207,6 +233,371 @@ export const DashboardView: React.FC = () => {
         </div>
 
       </div>
+
+      {/* 3.5 Dynamic Leave Consumption & Simulation Chart */}
+      {(() => {
+        const simEL_Remaining = Math.max(0, leaveBalances.earnedLeave - simulatedLeaves.earnedLeave);
+        const simEL_Used = 8 + simulatedLeaves.earnedLeave;
+        const simEL_Overdrawn = Math.max(0, simulatedLeaves.earnedLeave - leaveBalances.earnedLeave);
+
+        const simCL_Remaining = Math.max(0, leaveBalances.clCount - simulatedLeaves.cl);
+        const simCL_Used = 6 + simulatedLeaves.cl;
+        const simCL_Overdrawn = Math.max(0, simulatedLeaves.cl - leaveBalances.clCount);
+
+        const simSL_Remaining = Math.max(0, leaveBalances.slCount - simulatedLeaves.sl);
+        const simSL_Used = 4 + simulatedLeaves.sl;
+        const simSL_Overdrawn = Math.max(0, simulatedLeaves.sl - leaveBalances.slCount);
+
+        const simCO_Remaining = Math.max(0, leaveBalances.compOffCount - simulatedLeaves.compOff);
+        const simCO_Used = 3 + simulatedLeaves.compOff;
+        const simCO_Overdrawn = Math.max(0, simulatedLeaves.compOff - leaveBalances.compOffCount);
+
+        const leaveChartData = [
+          {
+            name: "Earned Leaves",
+            "Used So Far": 8,
+            "Simulated Request": simulatedLeaves.earnedLeave - simEL_Overdrawn,
+            "Remaining Balance": simEL_Remaining,
+            "Overdraft Days": simEL_Overdrawn,
+            total: 8 + leaveBalances.earnedLeave
+          },
+          {
+            name: "Casual Leaves",
+            "Used So Far": 6,
+            "Simulated Request": simulatedLeaves.cl - simCL_Overdrawn,
+            "Remaining Balance": simCL_Remaining,
+            "Overdraft Days": simCL_Overdrawn,
+            total: 6 + leaveBalances.clCount
+          },
+          {
+            name: "Sick Leaves",
+            "Used So Far": 4,
+            "Simulated Request": simulatedLeaves.sl - simSL_Overdrawn,
+            "Remaining Balance": simSL_Remaining,
+            "Overdraft Days": simSL_Overdrawn,
+            total: 4 + leaveBalances.slCount
+          },
+          {
+            name: "Comp-Offs",
+            "Used So Far": 3,
+            "Simulated Request": simulatedLeaves.compOff - simCO_Overdrawn,
+            "Remaining Balance": simCO_Remaining,
+            "Overdraft Days": simCO_Overdrawn,
+            total: 3 + leaveBalances.compOffCount
+          }
+        ];
+
+        const totalSimulated = simulatedLeaves.earnedLeave + simulatedLeaves.cl + simulatedLeaves.sl + simulatedLeaves.compOff;
+
+        const getZiggyDiagnostic = () => {
+          if (totalSimulated === 0) {
+            return "Yo! I'm Ziggy, your chill offGrid guide. Click [+] below to simulate taking some leaves! I'll test the balance thresholds and give you some smart feedback.";
+          }
+          
+          if (simEL_Overdrawn > 0 || simCL_Overdrawn > 0 || simSL_Overdrawn > 0 || simCO_Overdrawn > 0) {
+            return "Whoa, watch out! You have overdrawn your available balances. 🚨 Taking these dates will result in Loss of Pay (LOP) or require manual HR escalation. Let's optimize a different weekend or request a Holiday Swap first!";
+          }
+          
+          if (simulatedLeaves.cl > 0 && simCL_Remaining === 0) {
+            return "Epic match. You fully drained your Casual Leave reserve! CL has a strict 'use-it-or-lose-it' policy by Dec 31st, so this is 100% optimized energy.";
+          }
+
+          if (simulatedLeaves.compOff > 0) {
+            return "Smart play! Using your Compensatory Offs first protects your Earned Leaves and keeps you clear of the 90-day expiry tracker.";
+          }
+
+          if (simulatedLeaves.earnedLeave >= 5) {
+            return `Solid wood-vibe planning! 🌲 An EL run of ${simulatedLeaves.earnedLeave} days unlocks deep wellness recovery. I will structure the travel blueprint for matching offGrid days.`;
+          }
+          
+          return `Looking stellar! You've simulated ${totalSimulated} offGrid days. Perfect recovery pacing, and your remaining buffer is perfectly balanced. Let's make it real!`;
+        };
+
+        return (
+          <div id="leave-consumption-card" className="lumina-glass p-6 rounded-2xl space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#eae7e7]/65 pb-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-[#897365] font-bold uppercase tracking-wider">Interactive Breakdown</span>
+                <h3 className="text-lg font-bold text-[#1c1b1b] tracking-tight flex items-center gap-2">
+                  <Activity className="text-[#944a00] w-5 h-5 animate-pulse shrink-0" />
+                  <span>Leave Types Used vs. Remaining Balances ({new Date().getFullYear()})</span>
+                </h3>
+                <p className="text-xs text-[#564337] font-medium leading-relaxed">
+                  Analyze calendar year balances, track used quotas, and plan future travel limits with real-time feedback.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-[#f6f3f2] p-1 rounded-xl border border-[#eae7e7] self-start md:self-auto">
+                <button
+                  onClick={() => setChartType('stacked')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono uppercase tracking-wide cursor-pointer transition-all duration-150 ${
+                    chartType === 'stacked'
+                      ? 'bg-white text-stone-900 shadow-sm border border-[#eae7e7]'
+                      : 'text-[#897365] hover:text-stone-905'
+                  }`}
+                >
+                  Stacked Quotas
+                </button>
+                <button
+                  onClick={() => setChartType('grouped')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold font-mono uppercase tracking-wide cursor-pointer transition-all duration-150 ${
+                    chartType === 'grouped'
+                      ? 'bg-white text-stone-900 shadow-sm border border-[#eae7e7]'
+                      : 'text-[#897365] hover:text-stone-905'
+                  }`}
+                >
+                  Side-by-Side
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Main Chart Column */}
+              <div id="leave-chart-container" className="lg:col-span-8 space-y-4">
+                <div className="w-full h-80 min-h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={leaveChartData}
+                      layout="vertical"
+                      margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={true} stroke="#eae7e7" />
+                      <XAxis type="number" stroke="#897365" fontSize={10} tickLine={false} axisLine={false} />
+                      <YAxis dataKey="name" type="category" stroke="#897365" fontSize={11} fontWeight="bold" tickLine={false} axisLine={false} width={100} />
+                      <Tooltip
+                        cursor={{ fill: '#eae7e7', fillOpacity: 0.2 }}
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-[#191919] text-white p-4 rounded-xl shadow-xl text-xs space-y-1.5 border border-white/10 text-left min-w-[200px]">
+                                <p className="font-bold border-b border-white/10 pb-1.5 text-sm">{payload[0].payload.name}</p>
+                                {payload.map((entry: any, idx) => {
+                                  if (entry.value === 0) return null;
+                                  return (
+                                    <div key={idx} className="flex justify-between items-center gap-4">
+                                      <span className="text-[#eae2de] flex items-center gap-1.5 capitalize font-medium">
+                                        <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: entry.color }} />
+                                        {entry.name}:
+                                      </span>
+                                      <span className="font-mono font-bold text-white">{entry.value} days</span>
+                                    </div>
+                                  );
+                                })}
+                                <div className="text-[10px] text-stone-400 pt-1 flex justify-between uppercase border-t border-white/5 font-mono">
+                                  <span>Total Allocated:</span>
+                                  <span className="text-white font-bold">{payload[0].payload.total} days</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Legend 
+                        verticalAlign="bottom" 
+                        height={36} 
+                        iconType="circle" 
+                        iconSize={10}
+                        wrapperStyle={{ fontSize: '10.5px', fontFamily: 'monospace', fontWeight: 'bold' }} 
+                      />
+                      
+                      {chartType === 'stacked' ? (
+                        <>
+                          <Bar dataKey="Used So Far" stackId="a" fill="#d0c9c5" name="Used So Far" />
+                          <Bar dataKey="Simulated Request" stackId="a" fill="#ffb783" name="Simulated Days" />
+                          <Bar dataKey="Remaining Balance" stackId="a" fill="#00b05c" name="Remaining Balance" />
+                          <Bar dataKey="Overdraft Days" stackId="a" fill="#ba1a1a" name="Deficit / LOP" />
+                        </>
+                      ) : (
+                        <>
+                          <Bar dataKey="Used So Far" fill="#d0c9c5" name="Used So Far" maxBarSize={14} />
+                          <Bar dataKey="Simulated Request" fill="#ffb783" name="Simulated Days" maxBarSize={14} />
+                          <Bar dataKey="Remaining Balance" fill="#00b05c" name="Remaining Balance" maxBarSize={14} />
+                          <Bar dataKey="Overdraft Days" fill="#ba1a1a" name="Deficit / LOP" maxBarSize={14} />
+                        </>
+                      )}
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Quick Chart Legends/Meta */}
+                <div className="flex flex-wrap items-center justify-between gap-3 text-[10px] font-mono font-bold text-[#897365] bg-[#fcfaf8] p-3 rounded-xl border border-[#eae7e7]/60">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 bg-[#00b05c] rounded" />
+                    <span>Green indicates active available recovery bank.</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 bg-[#ffb783] rounded" />
+                    <span>Amber shows simulated/pending vacation projections.</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Controls & Ziggy's Speech Bubble Column */}
+              <div className="lg:col-span-4 flex flex-col justify-between space-y-4">
+                
+                {/* Mascot advice bubble */}
+                <div id="mascot-calibrator" className="bg-[#191919] text-white p-4 rounded-2xl relative shadow-lg space-y-3.5 border border-[#564337]/35 text-left">
+                  <div className="flex items-center gap-3 border-b border-white/5 pb-2">
+                    {/* SVG Mascot (Ziggy with leaf & sunglasses!) */}
+                    <div className="w-10 h-10 rounded-full bg-white border border-stone-800 flex items-center justify-center text-[#1c1b1b] shrink-0">
+                      <svg width="26" height="26" viewBox="0 0 100 100" fill="none">
+                        <rect x="22" y="28" width="56" height="52" rx="18" fill="#fcfaf8" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M50 28 C50 16 58 12 62 14 C62 20 54 26 50 28Z" fill="#00b05c" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M50 28 C50 20 44 16 40 18 C40 24 46 27 50 28Z" fill="#00b05c" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        <rect x="30" y="44" width="16" height="12" rx="6" fill="#1c1b1b" stroke="currentColor" strokeWidth="3.5" />
+                        <rect x="54" y="44" width="16" height="12" rx="6" fill="#1c1b1b" stroke="currentColor" strokeWidth="3.5" />
+                        <path d="M46 48 H54" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+                        <path d="M43 62 Q50 71 57 62" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#ffb783] uppercase tracking-wide">Ziggy's Guidance</h4>
+                      <p className="text-[9px] text-[#e5e2e1] font-mono">CALIBRATION ENGINE ACTIVE</p>
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <p className="text-[12px] leading-relaxed text-stone-100 font-medium">
+                      {getZiggyDiagnostic()}
+                    </p>
+                  </div>
+
+                  {totalSimulated > 0 && (
+                    <div className="pt-1 flex items-center justify-between text-[11px] font-mono text-[#ffb783] border-t border-white/10">
+                      <span>Total Simulated Days:</span>
+                      <span className="font-bold underline">{totalSimulated} Days</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Simulated Controllers */}
+                <div className="bg-white border border-[#eae7e7] p-4 rounded-2xl space-y-3 shadow-sm text-left">
+                  <span className="text-[10px] font-mono text-[#897365] font-bold uppercase tracking-wider block border-b border-[#eae7e7]/50 pb-2">
+                    Vacation Simulator
+                  </span>
+
+                  {/* Earned Leave Controller */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-[#1c1b1b]">Earned Leaves</p>
+                      <p className="text-[9px] text-[#897365] font-mono">Bal: {simEL_Remaining} left &bull; {simEL_Used} used</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, earnedLeave: Math.max(0, s.earnedLeave - 1) }))}
+                        disabled={simulatedLeaves.earnedLeave <= 0}
+                        className="w-7 h-7 bg-stone-50 border border-[#eae7e7] text-stone-600 rounded-lg flex items-center justify-center hover:bg-stone-100 disabled:opacity-40 transition-colors cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-5 text-center font-bold font-mono text-xs text-[#1c1b1b]">{simulatedLeaves.earnedLeave}</span>
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, earnedLeave: s.earnedLeave + 1 }))}
+                        className="w-7 h-7 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Casual Leave Controller */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-[#1c1b1b]">Casual Leaves</p>
+                      <p className="text-[9px] text-[#897365] font-mono">Bal: {simCL_Remaining} left &bull; {simCL_Used} used</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, cl: Math.max(0, s.cl - 1) }))}
+                        disabled={simulatedLeaves.cl <= 0}
+                        className="w-7 h-7 bg-stone-50 border border-[#eae7e7] text-stone-600 rounded-lg flex items-center justify-center hover:bg-stone-100 disabled:opacity-40 transition-colors cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-5 text-center font-bold font-mono text-xs text-[#1c1b1b]">{simulatedLeaves.cl}</span>
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, cl: s.cl + 1 }))}
+                        className="w-7 h-7 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sick Leave Controller */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-[#1c1b1b]">Sick Leaves</p>
+                      <p className="text-[9px] text-[#897365] font-mono">Bal: {simSL_Remaining} left &bull; {simSL_Used} used</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, sl: Math.max(0, s.sl - 1) }))}
+                        disabled={simulatedLeaves.sl <= 0}
+                        className="w-7 h-7 bg-stone-50 border border-[#eae7e7] text-stone-600 rounded-lg flex items-center justify-center hover:bg-stone-100 disabled:opacity-40 transition-colors cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-5 text-center font-bold font-mono text-xs text-[#1c1b1b]">{simulatedLeaves.sl}</span>
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, sl: s.sl + 1 }))}
+                        className="w-7 h-7 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Comp-Off Controller */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <p className="font-bold text-[#1c1b1b]">Comp-Offs</p>
+                      <p className="text-[9px] text-[#897365] font-mono">Bal: {simCO_Remaining} left &bull; {simCO_Used} used</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, compOff: Math.max(0, s.compOff - 1) }))}
+                        disabled={simulatedLeaves.compOff <= 0}
+                        className="w-7 h-7 bg-stone-50 border border-[#eae7e7] text-stone-600 rounded-lg flex items-center justify-center hover:bg-stone-100 disabled:opacity-40 transition-colors cursor-pointer"
+                      >
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="w-5 text-center font-bold font-mono text-xs text-[#1c1b1b]">{simulatedLeaves.compOff}</span>
+                      <button
+                        onClick={() => setSimulatedLeaves(s => ({ ...s, compOff: s.compOff + 1 }))}
+                        className="w-7 h-7 bg-[#944a00] hover:bg-[#e67e22] text-white rounded-lg flex items-center justify-center transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {totalSimulated > 0 && (
+                    <div className="pt-2 flex gap-2">
+                      <button
+                        onClick={() => setSimulatedLeaves({ earnedLeave: 0, cl: 0, sl: 0, compOff: 0 })}
+                        className="w-full py-1.5 border border-[#eae7e7] hover:bg-stone-50 text-stone-700 text-[10px] font-mono font-bold uppercase rounded-xl transition-all cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => {
+                          setTab("calendar");
+                        }}
+                        className="w-full py-1.5 bg-[#00b05c] hover:bg-[#008f49] text-white text-[10px] font-mono font-bold uppercase rounded-xl transition-all gap-1 flex items-center justify-center cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3 h-3 text-white" />
+                        <span>Go to Grid</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 4. Zen Stress Graph */}
       <div id="bento-zen-graph" className="lumina-glass p-5 rounded-2xl space-y-4">

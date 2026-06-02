@@ -48,7 +48,7 @@ export const ProfileView: React.FC = () => {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>ZenPlan Travel Optimization Report - ${user.name}</title>
+  <title>offGrid Travel Optimization Report - ${user.name}</title>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fafafa; color: #1c1b1b; padding: 40px; margin: 0; }
     .card { background: white; border: 1px solid #eae7e7; border-radius: 16px; max-width: 600px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; }
@@ -138,7 +138,7 @@ export const ProfileView: React.FC = () => {
       </div>
     </div>
     <div class="footer">
-      Generated via OffGrid ZenPlan &bull; Regional HRMS Noida HQ Audited
+      Generated via offGrid Ziggy Mascot &bull; Regional HRMS Noida HQ Audited
     </div>
   </div>
 </body>
@@ -169,9 +169,9 @@ Jurisdiction: Delhi / Noida regional HQ
   * Must be scheduled or consumed within forty-five (45) days
     of accrual, else it lapses in HRMS.
 
-2. LONG WEEKEND OPTIMIZATION SCHEME (ZENPLAN)
+2. LONG WEEKEND OPTIMIZATION SCHEME (OFFGRID)
 ------------------------------------------------------------
-- Employees of Arrise are encouraged to utilize ZenPlan
+- Employees of Arrise are encouraged to utilize offGrid
   algorithms to line up regional holiday swaps (e.g. swapping
   fixed regional holidays for recognized floaters).
 - Pre-checks must be run to guarantee zero Loss of Pay (LOP)
@@ -212,7 +212,7 @@ Maximize your relaxation time by optimizing your corporate calendars!
    - Review the municipal list of recognized floating holidays.
    - Trade a low-impact fixed holiday (e.g., mid-week isolated)
      for an adjacent floater holiday to bridge weekend gaps.
-   - Execute the official transaction inside the ZenPlan HRMS integration.
+   - Execute the official transaction inside the offGrid HRMS integration.
 
 Keep traveling, keep optimizing!
 ============================================================`;
@@ -396,7 +396,7 @@ Keep traveling, keep optimizing!
 
               <div className="flex justify-between items-start z-10">
                 <div>
-                  <h4 className="text-xs font-black tracking-widest text-[#ffbf00] font-mono">ZENPLAN TICKET</h4>
+                  <h4 className="text-xs font-black tracking-widest text-[#ffbf00] font-mono">OFFGRID TICKET</h4>
                   <p className="text-[9px] text-[#897365] font-mono mt-0.5">ID: {user.name ? user.name.toUpperCase().replace(/\s+/g, '-') : "ALEX"}-{currentTripLocation.toUpperCase().replace(/\s+/g, '-')}-2026</p>
                 </div>
                 <div className="bg-[#00b05c]/10 border border-[#00b05c]/30 text-[#00b05c] px-2 py-1 rounded text-[10px] font-mono font-bold uppercase">

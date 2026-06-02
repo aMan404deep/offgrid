@@ -245,7 +245,7 @@ export const ItineraryView: React.FC = () => {
       
       // Beautiful offline-ready high-fidelity text itinerary fallback
       let textItinerary = `============================================================\n`;
-      textItinerary += `          OFFGRID ZENPLAN DETAILED OPTIMIZED ITINERARY      \n`;
+      textItinerary += `          OFFGRID DETAILED OPTIMIZED ITINERARY WITH ZIGGY   \n`;
       textItinerary += `============================================================\n`;
       textItinerary += `Employee Name : ${user.name}\n`;
       textItinerary += `Home Terminal : ${user.location}\n`;
@@ -266,7 +266,7 @@ export const ItineraryView: React.FC = () => {
       });
       
       textItinerary += `============================================================\n`;
-      textItinerary += `Generated via OffGrid ZenPlan & Noida HQ HRMS Registries\n`;
+      textItinerary += `Generated via offGrid Ziggy Mascot & Noida HQ HRMS Registries\n`;
       textItinerary += `============================================================\n`;
       
       const blob = new Blob([textItinerary.trim()], { type: "text/plain" });
@@ -1034,82 +1034,9 @@ export const ItineraryView: React.FC = () => {
               }}
               onTouchEnd={() => setIsDragging(false)}
             >
-              {/* Absolutes for Compass rose & status logs inside map */}
-              <div className="absolute top-3 right-3 pointer-events-none z-20 flex flex-col items-end gap-1">
-                <div className="w-10 h-10 border border-stone-800 rounded-full flex items-center justify-center bg-stone-950/80 backdrop-blur-xs animate-pulse-slow">
-                  <Compass className="w-5 h-5 text-[#944a00]/70 animate-[spin_20s_linear_infinite]" />
-                </div>
-                <span className="text-[8px] font-mono text-stone-500">BEARING ACTIVE</span>
-              </div>
-
-              {/* Dynamic bottom telemetry HUD console */}
-              <div className="absolute bottom-3 left-3 right-3 z-20 bg-stone-950/85 backdrop-blur-md rounded-xl p-2.5 border border-[#eae7e7]/10 flex items-center justify-between text-[10px] gap-2">
-                {hoveredNode ? (
-                  <div className="flex-1 min-w-0 text-left">
-                    <div className="flex items-center gap-1">
-                      <span className={`w-1.5 h-1.5 rounded-full ${hoveredNode.type === 'origin' ? 'bg-[#ffbf00]' : hoveredNode.type === 'destination' ? 'bg-[#944a00]' : 'bg-[#00b05c]'} animate-pulse`} />
-                      <span className="font-mono font-bold text-stone-400 uppercase leading-none text-[8px]">{hoveredNode.type} tracker</span>
-                    </div>
-                    <p className="font-bold text-white font-sans mt-0.5 leading-none truncate">{hoveredNode.name}</p>
-                    <p className="text-[9px] text-stone-400 mt-1 truncate max-w-[190px]">{hoveredNode.info}</p>
-                  </div>
-                ) : (
-                  <div className="text-left">
-                    <p className="text-[9px] font-mono font-bold text-[#ffdcc5] uppercase leading-none tracking-widest gap-1 flex items-center">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#944a00] animate-pulse" />
-                      Active Route Matrix / Map
-                    </p>
-                    <p className="text-[11px] font-sans font-semibold text-stone-200 mt-1 leading-none">{user.location} &rarr; {currentTripLocation}</p>
-                    <p className="text-[8px] font-mono text-stone-500 mt-1 leading-none">Drag context to pan &bull; Click + / - to Zoom</p>
-                  </div>
-                )}
-                <div className="text-right shrink-0">
-                  <p className="text-[9px] text-stone-400 font-mono font-bold">LAT: {getCoordsForName(currentTripLocation, false).lat}</p>
-                  <p className="text-[9px] text-stone-400 font-mono font-bold">LON: {getCoordsForName(currentTripLocation, false).lon}</p>
-                </div>
-              </div>
-
-              {/* Floating interactive zoom controls panel */}
-              <div className="absolute top-3 left-3 z-30 flex gap-1">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setZoom(z => Math.min(3.5, z + 0.25));
-                  }}
-                  title="Zoom In"
-                  className="p-1.5 bg-stone-900/90 hover:bg-stone-800 active:scale-95 text-stone-300 hover:text-white rounded-lg border border-stone-800 shadow-lg cursor-pointer transition-all flex items-center justify-center"
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setZoom(z => Math.max(0.6, z - 0.25));
-                  }}
-                  title="Zoom Out"
-                  className="p-1.5 bg-stone-900/90 hover:bg-stone-800 active:scale-95 text-stone-300 hover:text-white rounded-lg border border-stone-800 shadow-lg cursor-pointer transition-all flex items-center justify-center"
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setZoom(1);
-                    setPan({ x: 0, y: 0 });
-                  }}
-                  title="Recenter Map"
-                  className="p-1.5 bg-stone-900/90 hover:bg-stone-800 active:scale-95 text-stone-300 hover:text-white rounded-lg border border-stone-800 shadow-lg cursor-pointer transition-all flex items-center justify-center"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Map SVG container transform group */}
+              {/* Map SVG container transform group - Rendered first with z-10 to stay under HUD elements */}
               <div 
-                className="w-full h-full"
+                className="relative z-10 w-full h-full"
                 style={{
                   transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                   transformOrigin: "center center",
@@ -1287,6 +1214,79 @@ export const ItineraryView: React.FC = () => {
                     );
                   })()}
                 </svg>
+              </div>
+
+              {/* Absolutes for Compass rose & status logs inside map */}
+              <div className="absolute top-3 right-3 pointer-events-none z-30 flex flex-col items-end gap-1">
+                <div className="w-10 h-10 border border-stone-800 rounded-full flex items-center justify-center bg-stone-950/80 backdrop-blur-xs animate-pulse-slow">
+                  <Compass className="w-5 h-5 text-[#944a00]/70 animate-[spin_20s_linear_infinite]" />
+                </div>
+                <span className="text-[8px] font-mono text-stone-500">BEARING ACTIVE</span>
+              </div>
+
+              {/* Dynamic bottom telemetry HUD console */}
+              <div className="absolute bottom-3 left-3 right-3 z-40 bg-stone-950/85 backdrop-blur-md rounded-xl p-2.5 border border-[#eae7e7]/10 flex items-center justify-between text-[10px] gap-2">
+                {hoveredNode ? (
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="flex items-center gap-1">
+                      <span className={`w-1.5 h-1.5 rounded-full ${hoveredNode.type === 'origin' ? 'bg-[#ffbf00]' : hoveredNode.type === 'destination' ? 'bg-[#944a00]' : 'bg-[#00b05c]'} animate-pulse`} />
+                      <span className="font-mono font-bold text-stone-400 uppercase leading-none text-[8px]">{hoveredNode.type} tracker</span>
+                    </div>
+                    <p className="font-bold text-white font-sans mt-0.5 leading-none truncate">{hoveredNode.name}</p>
+                    <p className="text-[9px] text-stone-400 mt-1 truncate max-w-[190px]">{hoveredNode.info}</p>
+                  </div>
+                ) : (
+                  <div className="text-left">
+                    <p className="text-[9px] font-mono font-bold text-[#ffdcc5] uppercase leading-none tracking-widest gap-1 flex items-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#944a00] animate-pulse" />
+                      Active Route Matrix / Map
+                    </p>
+                    <p className="text-[11px] font-sans font-semibold text-stone-200 mt-1 leading-none">{user.location} &rarr; {currentTripLocation}</p>
+                    <p className="text-[8px] font-mono text-stone-500 mt-1 leading-none">Drag context to pan &bull; Click + / - to Zoom</p>
+                  </div>
+                )}
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] text-stone-400 font-mono font-bold">LAT: {getCoordsForName(currentTripLocation, false).lat}</p>
+                  <p className="text-[9px] text-stone-400 font-mono font-bold">LON: {getCoordsForName(currentTripLocation, false).lon}</p>
+                </div>
+              </div>
+
+              {/* Floating interactive zoom and pan controls panel - High z-index (z-50) & dark glass HUD theme */}
+              <div className="absolute top-3 left-3 z-50 flex items-center gap-1 bg-stone-950/90 backdrop-blur-md p-1.5 rounded-xl border border-stone-800 shadow-2xl">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoom(z => Math.min(3.5, z + 0.25));
+                  }}
+                  title="Zoom In"
+                  className="p-1.5 bg-stone-900/80 hover:bg-stone-805 hover:text-white text-stone-300 rounded-lg border border-stone-800/50 active:scale-95 cursor-pointer transition-all duration-150 flex items-center justify-center"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoom(z => Math.max(0.6, z - 0.25));
+                  }}
+                  title="Zoom Out"
+                  className="p-1.5 bg-stone-900/80 hover:bg-stone-805 hover:text-white text-stone-300 rounded-lg border border-stone-800/50 active:scale-95 cursor-pointer transition-all duration-150 flex items-center justify-center"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoom(1);
+                    setPan({ x: 0, y: 0 });
+                  }}
+                  title="Recenter Map"
+                  className="p-1.5 bg-stone-900/80 hover:bg-stone-805 hover:text-white text-stone-300 rounded-lg border border-stone-800/50 active:scale-95 cursor-pointer transition-all duration-150 flex items-center justify-center"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
               </div>
             </div>
           </div>

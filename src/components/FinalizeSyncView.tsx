@@ -32,7 +32,7 @@ export const FinalizeSyncView: React.FC = () => {
     triggerToast("Downloading trip overview summary...");
     
     const summaryText = `============================================================
-              ZENPLAN OFFGRID TRIP SUMMARY
+              OFFGRID TRIP SUMMARY WITH ZIGGY
 ============================================================
 Reference ID   : ID-4428
 Employee Name  : ${user.name}

@@ -4,7 +4,7 @@ import { Sparkles, X, ChevronDown, CheckCircle, Info } from "lucide-react";
 export const AiAssistantWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ id: string; text: string; sender: "user" | "ai" }[]>([
-    { id: "1", text: "Hi! I'm ZenPlan Assistant. I calculate your responses by querying Arrise's leave policy documents using a Retrieval-Augmented Generation (RAG) model. I can answer policy questions or help you plan travel.", sender: "ai" },
+    { id: "1", text: "Yo! I'm Ziggy, your chill offGrid mascot & smart assistant. I calculate your responses by querying Arrise's leave policy documents using a Retrieval-Augmented Generation (RAG) model. I can answer policy questions or help you plan travel.", sender: "ai" },
     { id: "2", text: "Note: I will only answer questions related to your leave policy and company travel. If you ask out-of-domain questions (like cooking recipes), I will politely decline.", sender: "ai" }
   ]);
   const [input, setInput] = useState("");
@@ -54,14 +54,32 @@ export const AiAssistantWidget: React.FC = () => {
           className="w-14 h-14 bg-white border border-[#eae7e7] text-[#1c1b1b] rounded-full shadow-lg flex items-center justify-center hover:bg-stone-50 hover:scale-105 transition-all group"
         >
           <div className="relative">
-             <svg width="32" height="32" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse">
-               {/* Minimal Notion-like Face Mascot */}
-               <path d="M40 35 Q50 25 60 35" />
-               <circle cx="45" cy="45" r="4" fill="currentColor" />
-               <circle cx="55" cy="50" r="4" fill="currentColor" />
-               <path d="M50 45 L45 65 L55 65" strokeLinejoin="miter" />
+             <svg width="36" height="36" viewBox="0 0 100 100" fill="none" className="hover:rotate-12 transition-transform duration-300">
+               {/* Head squircle with cozy earth color fill */}
+               <rect x="22" y="28" width="56" height="52" rx="18" fill="#fcfaf8" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+               
+               {/* OffGrid green leaf sprout on top */}
+               <path d="M50 28 C50 16 58 12 62 14 C62 20 54 26 50 28Z" fill="#00b05c" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+               <path d="M50 28 C50 20 44 16 40 18 C40 24 46 27 50 28Z" fill="#00b05c" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+               <path d="M50 28 V20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+
+               {/* Cool sunglasses */}
+               <rect x="30" y="44" width="16" height="12" rx="6" fill="#1c1b1b" stroke="currentColor" strokeWidth="3" />
+               <rect x="54" y="44" width="16" height="12" rx="6" fill="#1c1b1b" stroke="currentColor" strokeWidth="3" />
+               <path d="M46 48 H54" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+               
+               {/* Sparkles on sunglasses */}
+               <line x1="33" y1="47" x2="37" y2="47" stroke="white" strokeWidth="2" strokeLinecap="round" />
+               <line x1="57" y1="47" x2="61" y2="47" stroke="white" strokeWidth="2" strokeLinecap="round" />
+
+               {/* Easygoing wise smile */}
+               <path d="M43 62 Q50 71 57 62" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+               
+               {/* Blush cheeks */}
+               <ellipse cx="28" cy="58" rx="3.5" ry="2" fill="#ffdcc5" opacity="0.8" />
+               <ellipse cx="72" cy="58" rx="3.5" ry="2" fill="#ffdcc5" opacity="0.8" />
              </svg>
-            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></div>
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 border border-white rounded-full"></div>
           </div>
         </button>
       </div>
@@ -70,15 +88,28 @@ export const AiAssistantWidget: React.FC = () => {
         <div className="bg-[#f6f3f2] p-4 border-b border-[#eae7e7] flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-white border border-[#eae7e7] flex items-center justify-center text-[#1c1b1b] shrink-0">
-              <svg width="20" height="20" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
-                 <path d="M40 35 Q50 25 60 35" />
-                 <circle cx="45" cy="45" r="4" fill="currentColor" />
-                 <circle cx="55" cy="50" r="4" fill="currentColor" />
-                 <path d="M50 45 L45 65 L55 65" strokeLinejoin="miter" />
+              <svg width="22" height="22" viewBox="0 0 100 100" fill="none">
+                 <rect x="22" y="28" width="56" height="52" rx="18" fill="#fcfaf8" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+                 
+                 <path d="M50 28 C50 16 58 12 62 14 C62 20 54 26 50 28Z" fill="#00b05c" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                 <path d="M50 28 C50 20 44 16 40 18 C40 24 46 27 50 28Z" fill="#00b05c" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                 <path d="M50 28 V20" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+
+                 <rect x="30" y="44" width="16" height="12" rx="6" fill="#1c1b1b" stroke="currentColor" strokeWidth="3" />
+                 <rect x="54" y="44" width="16" height="12" rx="6" fill="#1c1b1b" stroke="currentColor" strokeWidth="3" />
+                 <path d="M46 48 H54" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+                 
+                 <line x1="33" y1="47" x2="37" y2="47" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                 <line x1="57" y1="47" x2="61" y2="47" stroke="WHITE" strokeWidth="2" strokeLinecap="round" />
+
+                 <path d="M43 62 Q50 71 57 62" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                 
+                 <ellipse cx="28" cy="58" rx="3.5" ry="2" fill="#ffdcc5" opacity="0.8" />
+                 <ellipse cx="72" cy="58" rx="3.5" ry="2" fill="#ffdcc5" opacity="0.8" />
                </svg>
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#1c1b1b]">ZenPlan AI Assistant</h3>
+              <h3 className="text-sm font-bold text-[#1c1b1b]">Ziggy (offGrid Mascot)</h3>
               <p className="text-[11px] text-[#564337] flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-500 rounded-full inline-block"></span> Always Active</p>
             </div>
           </div>
@@ -91,7 +122,7 @@ export const AiAssistantWidget: React.FC = () => {
         <div className="p-2 border-b border-[#eae7e7] bg-yellow-50/50">
            <div className="flex items-start gap-2 text-xs text-[#944a00]">
              <Info className="w-4 h-4 shrink-0 mt-0.5" />
-             <p><strong>System Logic:</strong> I use retrieval-augmented grounding limits. I am strictly forbidden from answering off-topic queries outside ZenPlan's HR policy scope.</p>
+             <p><strong>System Logic:</strong> I use retrieval-augmented grounding limits. I am strictly forbidden from answering off-topic queries outside offGrid's HR policy scope.</p>
            </div>
         </div>
 
