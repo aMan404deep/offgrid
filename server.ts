@@ -2,6 +2,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import Groq from "groq-sdk";
 import dotenv from "dotenv";
 import { ARRISE_LEAVE_POLICY_TEXT } from "./src/data/leavePolicy.js";
 import { getEmployeeByEmail, upsertEmployee } from "./src/db/repo.ts";
@@ -61,6 +62,77 @@ function getGeminiClient(): GoogleGenAI | null {
     });
   }
   return aiClient;
+}
+
+// Fallback logic for Groq
+function getGroqClient(): Groq | null {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey || apiKey === "") return null;
+  return new Groq({ apiKey });
+}
+
+async function generateContentWithFallback(ai: GoogleGenAI, options: any, isSearchGrounded: boolean = false): Promise<any> {
+  try {
+    return await ai.models.generateContent(options);
+  } catch (error: any) {
+    const groq = getGroqClient();
+    if (!groq) {
+      throw error;
+    }
+    
+    const isRateLimit = error?.status === 429 || error?.message?.includes("429") || error?.status === 503 || error?.message?.includes("RESOURCE_EXHAUSTED");
+    if (!isRateLimit) {
+      throw error;
+    }
+
+    console.warn(`[ZenPlan agent] Gemini failed (${error.status || error.message}). Falling back to Groq...`);
+
+    let groqModel = "llama-3.1-8b-instant";
+    if (options.model === "gemini-2.5-pro") {
+      groqModel = "llama-3.3-70b-versatile";
+    }
+
+    const messages: any[] = [];
+    if (options.config?.systemInstruction) {
+      messages.push({ role: "system", content: options.config.systemInstruction });
+    }
+
+    if (typeof options.contents === 'string') {
+      messages.push({ role: "user", content: options.contents });
+    } else if (Array.isArray(options.contents)) {
+      for (const msg of options.contents) {
+         if (msg.role === 'model') {
+           messages.push({ role: 'assistant', content: msg.parts[0]?.text || "" });
+         } else {
+           messages.push({ role: 'user', content: msg.parts[0]?.text || "" });
+         }
+      }
+    } else if (options.contents?.role) {
+      messages.push({ role: 'user', content: options.contents.parts[0]?.text || "" });
+    }
+
+    const isJson = options.config?.responseMimeType === "application/json";
+
+    const groqReq: any = {
+      messages,
+      model: groqModel,
+      temperature: options.config?.temperature || 0.3,
+    };
+    
+    if (isJson) {
+      groqReq.response_format = { type: "json_object" };
+    }
+
+    // Stagger backup loops to avoid sudden TPM spikes
+    await new Promise(r => setTimeout(r, 200 + Math.random() * 800));
+
+    const completion = await groq.chat.completions.create(groqReq);
+    let textResponse = completion.choices[0]?.message?.content || "";
+
+    return {
+      text: textResponse,
+    };
+  }
 }
 
 // Fallback helpers
@@ -492,7 +564,7 @@ app.post("/api/policy-chat", async (req, res) => {
     }));
 
     // Perform the RAG call with system instruction including the entire Leave Policy
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithFallback(ai, {
       model: "gemini-2.5-flash",
       contents: [
         ...formattedHistory,
@@ -551,7 +623,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
     // ==========================================
     const gatewayPrompt = buildGatewayPrompt(resolvedDestination, resolvedDays, resolvedBaseLocation, vibe, budgetLevel);
 
-    const gatewayResponse = await ai.models.generateContent({
+    const gatewayResponse = await generateContentWithFallback(ai, {
       model: "gemini-2.5-flash",
       contents: gatewayPrompt,
       config: {
@@ -645,10 +717,10 @@ app.post("/api/generate-itinerary", async (req, res) => {
     const routePrompt = buildRouteOptimizerPrompt(finalBase, finalDest, lat, lon, budgetLevel);
 
     const [weatherWorkerRes, eventWorkerRes, foodWorkerRes, routeWorkerRes] = await Promise.all([
-      ai.models.generateContent({ model: "gemini-2.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
-      ai.models.generateContent({ model: "gemini-2.5-flash", contents: eventPrompt, config: { responseMimeType: "application/json", temperature: 0.3, tools: [{ googleSearch: {} }] } }),
-      ai.models.generateContent({ model: "gemini-2.5-flash", contents: foodPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
-      ai.models.generateContent({ model: "gemini-2.5-flash", contents: routePrompt, config: { responseMimeType: "application/json", temperature: 0.3 } })
+      generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: weatherPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
+      generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: eventPrompt, config: { responseMimeType: "application/json", temperature: 0.3, tools: [{ googleSearch: {} }] } }, true),
+      generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: foodPrompt, config: { responseMimeType: "application/json", temperature: 0.3 } }),
+      generateContentWithFallback(ai, { model: "gemini-2.5-flash", contents: routePrompt, config: { responseMimeType: "application/json", temperature: 0.3 } })
     ]);
 
     const weatherWorkerOutput = weatherWorkerRes.text || "{}";
@@ -668,7 +740,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
       weatherWorkerOutput, eventWorkerOutput, foodWorkerOutput, routeWorkerOutput
     );
 
-    const eicResponse = await ai.models.generateContent({
+    const eicResponse = await generateContentWithFallback(ai, {
       model: "gemini-2.5-pro",
       contents: eicPrompt,
       config: {
@@ -676,7 +748,7 @@ app.post("/api/generate-itinerary", async (req, res) => {
         responseMimeType: "application/json",
         temperature: 0.4
       }
-    });
+    }, true);
 
     const finalResultStr = eicResponse.text || "";
     const jsonMatch = finalResultStr.match(/\{.*\}/s) || [finalResultStr];
@@ -743,14 +815,14 @@ app.post("/api/live-deals", async (req, res) => {
     // However, googleSearch grounding might conflict with JSON schema directly. Let's ask Gemini to just return JSON.
     const prompt = buildLiveSearchAgentPrompt(resolvedOrigin, resolvedDestination, dates, budgetLevel);
 
-    const response = await ai.models.generateContent({
+    const response = await generateContentWithFallback(ai, {
       model: "gemini-2.5-pro",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
         temperature: 0.3
       }
-    });
+    }, true);
 
     const resultText = response.text || "";
     // Extract JSON block in case it comes with markdown

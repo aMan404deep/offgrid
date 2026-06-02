@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Sun, ThermometerSun } from 'lucide-react';
 
 interface WeatherDay {
@@ -13,6 +13,8 @@ interface WeatherOverlayProps {
 }
 
 export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ forecast }) => {
+  const [isCelsius, setIsCelsius] = useState(true);
+
   if (!forecast || forecast.length === 0) return null;
 
   const getWeatherIcon = (code: number) => {
@@ -31,11 +33,24 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ forecast }) => {
     return d.toLocaleDateString('en-US', { weekday: 'short' });
   };
 
+  const formatTemp = (tempC: number) => {
+    const value = isCelsius ? tempC : (tempC * 9 / 5) + 32;
+    return Math.round(value);
+  };
+
   return (
     <div className="absolute top-16 right-3 pointer-events-auto z-40 bg-stone-950/85 backdrop-blur-md rounded-xl p-3 border border-[#eae7e7]/10 flex flex-col gap-2 shadow-2xl">
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#00b05c] animate-pulse" />
-        <span className="text-[9px] font-mono font-bold text-stone-400 uppercase tracking-widest">5-Day Forecast</span>
+      <div className="flex items-center justify-between mb-1 gap-4">
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#00b05c] animate-pulse" />
+          <span className="text-[9px] font-mono font-bold text-stone-400 uppercase tracking-widest">5-Day Forecast</span>
+        </div>
+        <button
+          onClick={() => setIsCelsius(!isCelsius)}
+          className="text-[9px] font-mono font-bold text-stone-400 hover:text-white px-1.5 py-0.5 rounded bg-stone-800/50 hover:bg-stone-700/50 transition-colors"
+        >
+          °{isCelsius ? 'C' : 'F'}
+        </button>
       </div>
       <div className="flex gap-3">
         {forecast.map((day, idx) => (
@@ -43,8 +58,8 @@ export const WeatherOverlay: React.FC<WeatherOverlayProps> = ({ forecast }) => {
             <span className="text-[10px] font-mono font-bold text-stone-500 uppercase">{getDayName(day.date)}</span>
             <div className="animate-pulse">{getWeatherIcon(day.code)}</div>
             <div className="flex flex-col mt-0.5">
-              <span className="text-[11px] font-sans font-bold text-white leading-none">{Math.round(day.maxTemp)}°</span>
-              <span className="text-[9px] font-sans font-medium text-stone-500 leading-none mt-0.5">{Math.round(day.minTemp)}°</span>
+              <span className="text-[11px] font-sans font-bold text-white leading-none">{formatTemp(day.maxTemp)}°</span>
+              <span className="text-[9px] font-sans font-medium text-stone-500 leading-none mt-0.5">{formatTemp(day.minTemp)}°</span>
             </div>
           </div>
         ))}
